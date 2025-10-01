@@ -18,6 +18,8 @@
 - **Granularity**: high-level; group by initiatives/features; no task-level detail.
 - **QA & Documentation**: add **one global line of 3 weeks** for the entire estimation; include it **once** in totals (not per initiative/feature).
 - **Uncertainties**: do not ask questions; list clearly; widen O/P where appropriate.
+- **Competitiveness**: A manweek costs roughly USD12000; be concise! The product MUST be realistically priced.
+- **Weights**: A single line (milestone) is rearly takes more then 4 weeks; < 4 weeks 70%; 4 -- 12 weeks 25%; > 12 weeks 5%
 
 ## Emission Self-Checks (must pass)
 - Exactly **one** “QA/Documentation = 3 weeks” line present.

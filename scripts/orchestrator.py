@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Estimation Orchestrator
+Estimation Orchestrator (AWS Bedrock Version)
 
 This CLI script:
  1) Reads BA and Engineer personas from `personas/`.
@@ -16,8 +16,10 @@ Environment variables required (Atlassian Cloud):
 
 Note on Jira: Jira access, if needed, uses the same Atlassian variables above.
 
-OpenAI:
-  - OPENAI_API_KEY
+AWS Bedrock:
+  - AWS_ACCESS_KEY_ID (or use IAM role/instance profile)
+  - AWS_SECRET_ACCESS_KEY (or use IAM role/instance profile)
+  - AWS_REGION (e.g., us-east-1, us-west-2)
 
 Note: This script does not depend on MCP runtime; instead it fetches Confluence content directly
       and supplies it to the model. You can extend it to add more retrieval if needed.
@@ -51,10 +53,13 @@ from rich.progress import (
 from rich.traceback import install as rich_traceback_install
 
 try:
-    # OpenAI >= 1.0.0
-    from openai import OpenAI
+    # AWS Bedrock client
+    import boto3
+    from botocore.exceptions import BotoCoreError, ClientError
 except Exception:  # pragma: no cover - fallback for older installations
-    OpenAI = None  # type: ignore
+    boto3 = None  # type: ignore
+    BotoCoreError = Exception  # type: ignore
+    ClientError = Exception  # type: ignore
 
 try:
     # Lightweight HTML->Markdown converter for Confluence storage content
@@ -268,19 +273,121 @@ def _convert_html_to_markdown(html: str) -> str:
     return html_to_md(html, strip=['style', 'script'])
 
 
-def get_openai_client() -> OpenAI:
-    if OpenAI is None:
-        raise OrchestratorError(
-            "openai package not available. Install dependencies from requirements.txt"
+def _invoke_bedrock_model(
+    client,
+    model_id: str,
+    system_prompt: str,
+    user_content: str,
+    temperature: float = 0.2,
+) -> str:
+    """Invoke a Bedrock model with system prompt and user content.
+    
+    Supports Claude 3 (Anthropic), Titan (Amazon), and Llama (Meta) models.
+    """
+    # Determine model provider and format request accordingly
+    if model_id.startswith("anthropic.claude"):
+        # Claude 3 models use messages API
+        body = {
+            "anthropic_version": "bedrock-2023-05-31",
+            "max_tokens": 8192,
+            "temperature": temperature,
+            "system": system_prompt,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": user_content,
+                }
+            ],
+        }
+    elif model_id.startswith("amazon.titan"):
+        # Titan models use text generation format
+        prompt = f"System: {system_prompt}\n\nUser: {user_content}\n\nAssistant:"
+        body = {
+            "inputText": prompt,
+            "textGenerationConfig": {
+                "maxTokenCount": 8192,
+                "temperature": temperature,
+            },
+        }
+    elif model_id.startswith("meta.llama"):
+        # Llama models use prompt format
+        prompt = f"<s>[INST] <<SYS>>\n{system_prompt}\n<</SYS>>\n\n{user_content} [/INST]"
+        body = {
+            "prompt": prompt,
+            "max_gen_len": 8192,
+            "temperature": temperature,
+        }
+    else:
+        # Default: try Claude format (most common)
+        body = {
+            "anthropic_version": "bedrock-2023-05-31",
+            "max_tokens": 8192,
+            "temperature": temperature,
+            "system": system_prompt,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": user_content,
+                }
+            ],
+        }
+    
+    try:
+        response = client.invoke_model(
+            modelId=model_id,
+            body=json.dumps(body),
+            contentType="application/json",
+            accept="application/json",
         )
-    api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key:
-        raise OrchestratorError("OPENAI_API_KEY not set")
-    return OpenAI(api_key=api_key)
+        response_body = json.loads(response["body"].read())
+        
+        # Extract content based on model type
+        if model_id.startswith("anthropic.claude"):
+            content = response_body.get("content", [])
+            if content and isinstance(content, list) and len(content) > 0:
+                return content[0].get("text", "")
+            return ""
+        elif model_id.startswith("amazon.titan"):
+            results = response_body.get("results", [])
+            if results and len(results) > 0:
+                return results[0].get("outputText", "")
+            return ""
+        elif model_id.startswith("meta.llama"):
+            return response_body.get("generation", "")
+        else:
+            # Fallback: try Claude format
+            content = response_body.get("content", [])
+            if content and isinstance(content, list) and len(content) > 0:
+                return content[0].get("text", "")
+            return ""
+    except ClientError as e:
+        error_code = e.response.get("Error", {}).get("Code", "Unknown")
+        error_msg = e.response.get("Error", {}).get("Message", str(e))
+        raise OrchestratorError(
+            f"Bedrock API error ({error_code}): {error_msg}. "
+            f"Model: {model_id}. Ensure the model is available in your Bedrock account."
+        )
+    except Exception as e:
+        raise OrchestratorError(f"Failed to invoke Bedrock model {model_id}: {e}")
+
+
+def get_bedrock_client():
+    """Get AWS Bedrock client using boto3."""
+    if boto3 is None:
+        raise OrchestratorError(
+            "boto3 package not available. Install dependencies from requirements.txt"
+        )
+    region = os.getenv("AWS_REGION")
+    if not region:
+        raise OrchestratorError("AWS_REGION not set")
+    try:
+        return boto3.client("bedrock-runtime", region_name=region)
+    except Exception as e:
+        raise OrchestratorError(f"Failed to create Bedrock client: {e}")
 
 
 def generate_ba_notes(
-    client: OpenAI,
+    client,
     ba_system_prompt: str,
     confluence_url: str,
     confluence_title: str,
@@ -303,23 +410,21 @@ def generate_ba_notes(
             " The initial ballpark is provided; align your suggested breakdown to approximately fit this band. "
             "If you see a justified deviation, call it out explicitly and provide a within-ballpark alternative."
         )
-    create_kwargs = {
-        "model": model,
-        "messages": [
-            {"role": "system", "content": ba_system_prompt},
-            {"role": "user", "content": user_instructions},
-            {"role": "user", "content": user_payload},
-        ],
-    }
-    if not model.lower().startswith("gpt-5"):
-        create_kwargs["temperature"] = 0.2
-    resp = client.chat.completions.create(**create_kwargs)
-    content = resp.choices[0].message.content or ""
+    
+    # Combine user messages into a single user message for Bedrock
+    user_content = f"{user_instructions}\n\n{user_payload}"
+    
+    content = _invoke_bedrock_model(
+        client=client,
+        model_id=model,
+        system_prompt=ba_system_prompt,
+        user_content=user_content,
+    )
     return content.strip()
 
 
 def generate_pert_sheet(
-    client: OpenAI,
+    client,
     eng_system_prompt: str,
     pert_template_md: str,
     confluence_url: str,
@@ -342,18 +447,16 @@ def generate_pert_sheet(
             " Respect the initial ballpark in your totals where practical. If exceeding it, explicitly justify, "
             "and include a within-ballpark alternative rollup."
         )
-    create_kwargs = {
-        "model": model,
-        "messages": [
-            {"role": "system", "content": eng_system_prompt},
-            {"role": "user", "content": user_instructions},
-            {"role": "user", "content": user_payload},
-        ],
-    }
-    if not model.lower().startswith("gpt-5"):
-        create_kwargs["temperature"] = 0.2
-    resp = client.chat.completions.create(**create_kwargs)
-    content = resp.choices[0].message.content or ""
+    
+    # Combine user messages into a single user message for Bedrock
+    user_content = f"{user_instructions}\n\n{user_payload}"
+    
+    content = _invoke_bedrock_model(
+        client=client,
+        model_id=model,
+        system_prompt=eng_system_prompt,
+        user_content=user_content,
+    )
     return content.strip()
 
 
@@ -364,7 +467,7 @@ app = typer.Typer(add_completion=False, help="Orchestrates BA and Engineer estim
 def run(
     source_url: str = typer.Argument(..., help="Confluence page URL or Jira issue URL for the estimation"),
     name: Optional[str] = typer.Option(None, "--name", "-n", help="Name of the output folder (defaults to Confluence/Jira title)"),
-    model: str = typer.Option("gpt-5", "--model", "-m", help="OpenAI chat model to use"),
+    model: str = typer.Option("anthropic.claude-3-sonnet-20240229-v1:0", "--model", "-m", help="AWS Bedrock model ID to use (e.g., anthropic.claude-3-sonnet-20240229-v1:0)"),
     ballpark: Optional[str] = typer.Option(None, "--ballpark", help='Initial very high-level target (e.g., "30 manweeks")'),
     force: bool = typer.Option(False, "--force", help="Overwrite the output folder if it already exists (not allowed with --pert-only)"),
     business_analyst: bool = typer.Option(False, "--business-analyst", help="Only generate BA_Estimation_Notes.md and skip PERT"),
@@ -419,8 +522,8 @@ def run(
                     f"PERT_Estimate.md already exists in {out_dir_path}. Re-run with --force to overwrite."
                 )
 
-            progress.update(task, description="Initializing OpenAI client...")
-            client = get_openai_client()
+            progress.update(task, description="Initializing AWS Bedrock client...")
+            client = get_bedrock_client()
 
             progress.update(task, description="Generating PERT estimation sheet (using existing BA notes)...")
             pert_sheet = generate_pert_sheet(
@@ -446,8 +549,8 @@ def run(
             (out_dir / "PERT_TEMPLATE.md").write_text(pert_template_md, encoding="utf-8")
             created_files.extend(["input.source.url.txt", "input.confluence.page.md", "PERT_TEMPLATE.md"])
 
-            progress.update(task, description="Initializing OpenAI client...")
-            client = get_openai_client()
+            progress.update(task, description="Initializing AWS Bedrock client...")
+            client = get_bedrock_client()
 
             if business_analyst:
                 progress.update(task, description="Generating BA estimation notes...")

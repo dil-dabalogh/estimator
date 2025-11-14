@@ -6,11 +6,17 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from dotenv import load_dotenv
 
-from models import BatchRequest, BatchResponse, ConfluenceExportRequest, ConfluenceExportResponse
+from models import BatchRequest, BatchResponse, ConfluenceExportRequest, ConfluenceExportResponse, FetchTitleResponse
 from config import load_config
 from worker import process_batch, sessions
 from websocket_manager import ws_manager
-from confluence_client import parse_confluence_config, create_confluence_page
+from confluence_client import (
+    parse_confluence_config, 
+    create_confluence_page,
+    is_jira_issue_url,
+    fetch_jira_issue_markdown,
+    fetch_confluence_page_markdown
+)
 
 load_dotenv()
 
@@ -32,6 +38,33 @@ app.add_middleware(
 @app.get("/health")
 async def health_check():
     return {"status": "healthy"}
+
+
+@app.get("/api/fetch-title", response_model=FetchTitleResponse)
+async def fetch_title(url: str):
+    """Fetch the title/summary from a Confluence page or Jira issue URL."""
+    config = load_config()
+    
+    # Check if Atlassian credentials are configured
+    if not config.atlassian_url or not config.atlassian_email or not config.atlassian_token:
+        return FetchTitleResponse(title="", error="Atlassian credentials not configured")
+    
+    # Create Confluence configuration
+    confluence_cfg = parse_confluence_config(
+        config.atlassian_url,
+        config.atlassian_email,
+        config.atlassian_token
+    )
+    
+    try:
+        if is_jira_issue_url(url):
+            title, _ = fetch_jira_issue_markdown(confluence_cfg, url)
+        else:
+            title, _ = fetch_confluence_page_markdown(confluence_cfg, url)
+        
+        return FetchTitleResponse(title=title)
+    except Exception as e:
+        return FetchTitleResponse(title="", error=str(e))
 
 
 @app.post("/api/estimations/batch", response_model=BatchResponse)

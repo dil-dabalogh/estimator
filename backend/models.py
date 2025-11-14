@@ -60,3 +60,8 @@ class ConfluenceExportResponse(BaseModel):
     page_url: Optional[str] = None
     error: Optional[str] = None
 
+
+class FetchTitleResponse(BaseModel):
+    title: str
+    error: Optional[str] = None
+

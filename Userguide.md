@@ -14,7 +14,7 @@ The Estimation Tool generates Business Analyst notes and PERT estimates from Con
 Before creating estimations, you can configure where exported estimations will be saved in Confluence:
 
 1. In the "Confluence Estimation Location" section, enter the URL of the parent Confluence page
-   - Example: `https://diligentbrands.atlassian.net/wiki/spaces/RCP/pages/5699995053/Top-down+Estimation`
+   - Example: `https://your-domain.atlassian.net/wiki/spaces/SPACE/pages/12345/Page-Title`
 2. This location will be used for all exports in the current session
 3. You can leave this blank if you don't plan to export to Confluence
 
@@ -23,10 +23,10 @@ Before creating estimations, you can configure where exported estimations will b
 ### Single Estimation
 
 1. Enter a Confluence page URL or Jira issue URL
-2. The name field will automatically populate with the page/issue title after a brief moment
+2. The name field will automatically populate with the page/issue title followed by " ROM Estimation"
    - You can edit this name to customize it
    - A loading spinner appears while fetching the title
-3. Optionally, enter a ballpark estimate (e.g., "30 manweeks")
+3. Optionally, enter a ballpark estimate (e.g., "30 weeks" or "6 months")
 4. Click "Generate Estimations"
 
 ### Multiple Estimations
@@ -124,10 +124,10 @@ If an estimation fails:
 
 ## Tips
 
-- Names are automatically fetched from Confluence/Jira pages when you enter a URL
+- Names are automatically fetched from Confluence/Jira pages with " ROM Estimation" appended
 - You can edit the auto-populated name before submitting
 - Use descriptive names for your estimations for easy identification
-- The ballpark parameter helps guide the AI to align estimates
+- The ballpark parameter helps guide the AI to align estimates (e.g., "30 weeks", "6 months", "45 days")
 - Multiple estimations are processed in parallel for speed
 - Keep the browser tab open while processing
 - Set up the Confluence export location at the start of your session to streamline the workflow

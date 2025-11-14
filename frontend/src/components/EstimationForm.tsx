@@ -48,7 +48,9 @@ export function EstimationForm({ onSubmit, isSubmitting, parentPageUrl, onParent
           const newItems = [...currentItems]
           // Only update if the name field is empty or wasn't manually edited
           if (!newItems[index].name) {
-            newItems[index] = { ...newItems[index], name: response.data.title }
+            // Append " ROM Estimation" to the fetched title
+            const nameWithSuffix = `${response.data.title} ROM Estimation`
+            newItems[index] = { ...newItems[index], name: nameWithSuffix }
           }
           return newItems
         })
@@ -105,16 +107,16 @@ export function EstimationForm({ onSubmit, isSubmitting, parentPageUrl, onParent
           <CardTitle>Confluence Estimation Location (optional)</CardTitle>
         </CardHeader>
         <CardContent>
-          <Input
-            type="url"
-            placeholder="https://diligentbrands.atlassian.net/wiki/spaces/RCP/pages/..."
-            value={parentPageUrl}
-            onChange={(e) => onParentPageUrlChange(e.target.value)}
-            disabled={isSubmitting}
-          />
-          <p className="text-sm text-muted-foreground mt-2">
-            Enter the Confluence parent page URL where estimations will be exported.
-          </p>
+                <Input
+                  type="url"
+                  placeholder="https://your-domain.atlassian.net/wiki/spaces/SPACE/pages/12345/Page-Title"
+                  value={parentPageUrl}
+                  onChange={(e) => onParentPageUrlChange(e.target.value)}
+                  disabled={isSubmitting}
+                />
+                <p className="text-sm text-muted-foreground mt-2">
+                  Enter the Confluence parent page URL where estimations will be exported.
+                </p>
         </CardContent>
       </Card>
 
@@ -149,7 +151,7 @@ export function EstimationForm({ onSubmit, isSubmitting, parentPageUrl, onParent
                 </div>
                 <Input
                   type="text"
-                  placeholder="Ballpark (optional, e.g., '30 manweeks')"
+                  placeholder="Ballpark (optional, e.g., '30 weeks' or '6 months')"
                   value={item.ballpark}
                   onChange={(e) => updateItem(index, "ballpark", e.target.value)}
                 />

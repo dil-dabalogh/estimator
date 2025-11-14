@@ -11,6 +11,7 @@ A modern web application for generating Business Analyst (BA) estimation notes a
 - T-shirt size calculation (XS, S, M, L, XL, XXL)
 - Man-week estimates from PERT analysis
 - Download generated BA notes and PERT estimates as Markdown files
+- **Export estimations directly to Confluence pages**
 - FastAPI backend deployable to AWS Lambda
 - Support for OpenAI and AWS Bedrock LLM providers
 
@@ -49,6 +50,7 @@ The application will be available at `http://localhost:5173`
 - [User Guide](Userguide.md) - How to use the web application
 - [System Administrator Guide](Sysadminguide.md) - Deployment to AWS Lambda
 - [Development Guide](Developmentguide.md) - Local development and architecture
+- [Confluence Export Implementation](CONFLUENCE_EXPORT_IMPLEMENTATION.md) - Details on the Confluence export feature
 
 ## Technology Stack
 

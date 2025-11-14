@@ -50,3 +50,13 @@ class WebSocketMessage(BaseModel):
     session_id: str
     results: list[EstimationResult]
 
+
+class ConfluenceExportRequest(BaseModel):
+    parent_page_url: str = Field(..., description="URL of the parent Confluence page")
+
+
+class ConfluenceExportResponse(BaseModel):
+    success: bool
+    page_url: Optional[str] = None
+    error: Optional[str] = None
+

@@ -145,3 +145,107 @@ def fetch_confluence_page_markdown(cfg: ConfluenceConfig, url: str) -> Tuple[str
     md = convert_html_to_markdown(html)
     return title, md
 
+
+def extract_space_key_from_url(url: str) -> Optional[str]:
+    """Extract space key from Confluence URL."""
+    m = re.search(r"/spaces/([^/]+)", url)
+    return m.group(1) if m else None
+
+
+def markdown_to_confluence_storage(markdown: str) -> str:
+    """
+    Convert markdown to Confluence storage format.
+    Uses structured macro for better markdown rendering in Confluence.
+    """
+    # Escape special characters for XML
+    escaped = (markdown
+               .replace("&", "&amp;")
+               .replace("<", "&lt;")
+               .replace(">", "&gt;")
+               .replace('"', "&quot;"))
+    
+    # Wrap in a code block macro that preserves formatting
+    # Using the markdown macro for native markdown support
+    storage = f'''<ac:structured-macro ac:name="markdown" ac:schema-version="1">
+<ac:plain-text-body><![CDATA[{markdown}]]></ac:plain-text-body>
+</ac:structured-macro>'''
+    
+    return storage
+
+
+def create_confluence_page(
+    cfg: ConfluenceConfig, 
+    title: str, 
+    markdown_content: str, 
+    parent_page_url: str
+) -> Tuple[bool, str, Optional[str]]:
+    """
+    Create a new Confluence page with markdown content.
+    
+    Args:
+        cfg: Confluence configuration
+        title: Page title
+        markdown_content: Page content in markdown format
+        parent_page_url: URL of parent page
+        
+    Returns:
+        Tuple of (success: bool, page_url: str, error_message: Optional[str])
+    """
+    parent_id = extract_confluence_page_id(parent_page_url)
+    if not parent_id:
+        return False, "", "Could not extract parent page ID from URL"
+    
+    space_key = extract_space_key_from_url(parent_page_url)
+    if not space_key:
+        return False, "", "Could not extract space key from parent URL"
+    
+    session = requests.Session()
+    session.auth = (cfg.email, cfg.api_token)
+    session.headers.update({
+        "Accept": "application/json",
+        "Content-Type": "application/json"
+    })
+    
+    # Convert markdown to storage format
+    storage_content = markdown_to_confluence_storage(markdown_content)
+    
+    # Prepare the page data
+    page_data = {
+        "type": "page",
+        "title": title,
+        "space": {"key": space_key},
+        "ancestors": [{"id": parent_id}],
+        "body": {
+            "storage": {
+                "value": storage_content,
+                "representation": "storage"
+            }
+        }
+    }
+    
+    # Create the page using v1 API (more reliable for page creation)
+    create_url = f"{cfg.base_url}/rest/api/content"
+    
+    try:
+        resp = session.post(create_url, json=page_data, timeout=30)
+        
+        if resp.status_code == 200:
+            data = resp.json()
+            page_id = data.get("id")
+            # Construct the page URL
+            page_url = f"{cfg.base_url}/spaces/{space_key}/pages/{page_id}"
+            return True, page_url, None
+        elif resp.status_code == 409:
+            # Page with this title already exists
+            return False, "", f"A page with the title '{title}' already exists in this location"
+        else:
+            error_detail = resp.text
+            try:
+                error_json = resp.json()
+                error_detail = error_json.get("message", error_detail)
+            except Exception:
+                pass
+            return False, "", f"Failed to create page (status {resp.status_code}): {error_detail}"
+    except requests.exceptions.RequestException as e:
+        return False, "", f"Network error: {str(e)}"
+

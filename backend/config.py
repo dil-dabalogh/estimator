@@ -1,7 +1,7 @@
 import os
 from typing import Optional
 from dataclasses import dataclass
-from backend.llm_service import LLMConfig
+from llm_service import LLMConfig
 
 
 @dataclass

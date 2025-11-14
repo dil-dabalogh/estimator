@@ -1,13 +1,13 @@
 import asyncio
 from pathlib import Path
 from typing import Dict
-from backend.models import EstimationRequest, EstimationResult, EstimationStatus
-from backend.config import AppConfig
-from backend.llm_service import OpenAIProvider, BedrockProvider
-from backend.confluence_client import parse_confluence_config
-from backend.estimation_service import generate_ba_notes, generate_pert_sheet
-from backend.utils import parse_man_weeks_from_pert, calculate_tshirt_size
-from backend.websocket_manager import ws_manager
+from models import EstimationRequest, EstimationResult, EstimationStatus
+from config import AppConfig
+from llm_service import OpenAIProvider, BedrockProvider
+from confluence_client import parse_confluence_config
+from estimation_service import generate_ba_notes, generate_pert_sheet
+from utils import parse_man_weeks_from_pert, calculate_tshirt_size
+from websocket_manager import ws_manager
 
 
 sessions: Dict[str, list[EstimationResult]] = {}

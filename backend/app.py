@@ -6,10 +6,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from dotenv import load_dotenv
 
-from backend.models import BatchRequest, BatchResponse
-from backend.config import load_config
-from backend.worker import process_batch, sessions
-from backend.websocket_manager import ws_manager
+from models import BatchRequest, BatchResponse
+from config import load_config
+from worker import process_batch, sessions
+from websocket_manager import ws_manager
 
 load_dotenv()
 

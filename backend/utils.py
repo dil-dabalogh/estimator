@@ -1,6 +1,6 @@
 import re
 from typing import Optional
-from backend.models import TShirtSize
+from models import TShirtSize
 
 
 def calculate_tshirt_size(man_weeks: float) -> TShirtSize:

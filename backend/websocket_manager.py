@@ -1,7 +1,7 @@
 import asyncio
 from typing import Dict, Set
 from fastapi import WebSocket
-from backend.models import WebSocketMessage, EstimationResult
+from models import WebSocketMessage, EstimationResult
 
 
 class WebSocketManager:

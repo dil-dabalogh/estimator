@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Optional
-from backend.llm_service import LLMProvider, LLMConfig
-from backend.confluence_client import (
+from llm_service import LLMProvider, LLMConfig
+from confluence_client import (
     ConfluenceConfig,
     is_jira_issue_url,
     fetch_jira_issue_markdown,

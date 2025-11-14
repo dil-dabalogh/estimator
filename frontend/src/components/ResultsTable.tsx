@@ -1,14 +1,17 @@
-import { Download, Loader2, CheckCircle2, XCircle } from "lucide-react"
+import { Download, Loader2, CheckCircle2, XCircle, Upload, ExternalLink } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import type { EstimationResult, TShirtSize } from "@/types"
+import type { EstimationResult, TShirtSize, ConfluenceExportRequest, ConfluenceExportResponse } from "@/types"
 import { API_BASE_URL } from "@/config"
+import { useState } from "react"
+import axios from "axios"
 
 interface ResultsTableProps {
   results: EstimationResult[]
   sessionId: string
+  parentPageUrl: string
 }
 
 const tshirtColors: Record<TShirtSize, string> = {
@@ -39,7 +42,67 @@ const downloadFile = async (sessionId: string, name: string, type: "ba-notes" | 
   }
 }
 
-export function ResultsTable({ results, sessionId }: ResultsTableProps) {
+interface ExportState {
+  [key: string]: {
+    loading: boolean
+    success: boolean
+    pageUrl?: string
+    error?: string
+  }
+}
+
+export function ResultsTable({ results, sessionId, parentPageUrl }: ResultsTableProps) {
+  const [exportState, setExportState] = useState<ExportState>({})
+
+  const exportToConfluence = async (name: string) => {
+    if (!parentPageUrl) {
+      setExportState(prev => ({
+        ...prev,
+        [name]: { loading: false, success: false, error: "Please enter a Confluence parent page URL" }
+      }))
+      return
+    }
+
+    setExportState(prev => ({
+      ...prev,
+      [name]: { loading: true, success: false }
+    }))
+
+    try {
+      const request: ConfluenceExportRequest = { parent_page_url: parentPageUrl }
+      const response = await axios.post<ConfluenceExportResponse>(
+        `${API_BASE_URL}/api/estimations/${sessionId}/${name}/export-confluence`,
+        request
+      )
+
+      if (response.data.success) {
+        setExportState(prev => ({
+          ...prev,
+          [name]: { 
+            loading: false, 
+            success: true, 
+            pageUrl: response.data.page_url 
+          }
+        }))
+      } else {
+        setExportState(prev => ({
+          ...prev,
+          [name]: { 
+            loading: false, 
+            success: false, 
+            error: response.data.error || "Export failed" 
+          }
+        }))
+      }
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.detail || error.message || "Export failed"
+      setExportState(prev => ({
+        ...prev,
+        [name]: { loading: false, success: false, error: errorMessage }
+      }))
+    }
+  }
+
   if (results.length === 0) return null
 
   return (
@@ -57,60 +120,101 @@ export function ResultsTable({ results, sessionId }: ResultsTableProps) {
               <TableHead>Man-weeks</TableHead>
               <TableHead>BA Notes</TableHead>
               <TableHead>PERT</TableHead>
+              <TableHead>Export to Confluence</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {results.map((result) => (
-              <TableRow key={result.name}>
-                <TableCell className="font-medium">{result.name}</TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-2">
-                    {result.status === "completed" && (
-                      <CheckCircle2 className="h-4 w-4 text-green-500" />
+            {results.map((result) => {
+              const exportStatus = exportState[result.name]
+              return (
+                <TableRow key={result.name}>
+                  <TableCell className="font-medium">{result.name}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      {result.status === "completed" && (
+                        <CheckCircle2 className="h-4 w-4 text-green-500" />
+                      )}
+                      {result.status === "failed" && (
+                        <XCircle className="h-4 w-4 text-red-500" />
+                      )}
+                      {!["completed", "failed"].includes(result.status) && (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      )}
+                      <span className="text-sm">{result.progress || result.status}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    {result.tshirt_size && (
+                      <Badge className={tshirtColors[result.tshirt_size]}>
+                        {result.tshirt_size}
+                      </Badge>
                     )}
-                    {result.status === "failed" && (
-                      <XCircle className="h-4 w-4 text-red-500" />
-                    )}
-                    {!["completed", "failed"].includes(result.status) && (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    )}
-                    <span className="text-sm">{result.progress || result.status}</span>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  {result.tshirt_size && (
-                    <Badge className={tshirtColors[result.tshirt_size]}>
-                      {result.tshirt_size}
-                    </Badge>
-                  )}
-                </TableCell>
-                <TableCell>
-                  {result.man_weeks != null && result.man_weeks.toFixed(1)}
-                </TableCell>
-                <TableCell>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={!result.ba_notes_available}
-                    onClick={() => downloadFile(sessionId, result.name, "ba-notes")}
-                  >
-                    <Download className="h-3 w-3 mr-1" />
-                    Download
-                  </Button>
-                </TableCell>
-                <TableCell>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={!result.pert_available}
-                    onClick={() => downloadFile(sessionId, result.name, "pert")}
-                  >
-                    <Download className="h-3 w-3 mr-1" />
-                    Download
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
+                  </TableCell>
+                  <TableCell>
+                    {result.man_weeks != null && result.man_weeks.toFixed(1)}
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={!result.ba_notes_available}
+                      onClick={() => downloadFile(sessionId, result.name, "ba-notes")}
+                    >
+                      <Download className="h-3 w-3 mr-1" />
+                      Download
+                    </Button>
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={!result.pert_available}
+                      onClick={() => downloadFile(sessionId, result.name, "pert")}
+                    >
+                      <Download className="h-3 w-3 mr-1" />
+                      Download
+                    </Button>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-col gap-2">
+                      {exportStatus?.success ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => exportStatus.pageUrl && window.open(exportStatus.pageUrl, "_blank")}
+                          className="text-green-600"
+                        >
+                          <ExternalLink className="h-3 w-3 mr-1" />
+                          View Page
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={result.status !== "completed" || exportStatus?.loading || !parentPageUrl}
+                          onClick={() => exportToConfluence(result.name)}
+                        >
+                          {exportStatus?.loading ? (
+                            <>
+                              <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                              Exporting...
+                            </>
+                          ) : (
+                            <>
+                              <Upload className="h-3 w-3 mr-1" />
+                              Export
+                            </>
+                          )}
+                        </Button>
+                      )}
+                      {exportStatus?.error && (
+                        <span className="text-xs text-red-600">{exportStatus.error}</span>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              )
+            })}
           </TableBody>
         </Table>
         {results.some(r => r.error) && (

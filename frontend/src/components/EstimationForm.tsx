@@ -8,9 +8,11 @@ import type { EstimationRequest } from "@/types"
 interface EstimationFormProps {
   onSubmit: (items: EstimationRequest[]) => void
   isSubmitting: boolean
+  parentPageUrl: string
+  onParentPageUrlChange: (url: string) => void
 }
 
-export function EstimationForm({ onSubmit, isSubmitting }: EstimationFormProps) {
+export function EstimationForm({ onSubmit, isSubmitting, parentPageUrl, onParentPageUrlChange }: EstimationFormProps) {
   const [items, setItems] = useState<EstimationRequest[]>([
     { url: "", name: "", ballpark: "" }
   ])
@@ -44,12 +46,31 @@ export function EstimationForm({ onSubmit, isSubmitting }: EstimationFormProps) 
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Create Estimations</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
+    <div className="space-y-4">
+      <Card>
+        <CardHeader>
+          <CardTitle>Confluence Estimation Location (optional)</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Input
+            type="url"
+            placeholder="https://diligentbrands.atlassian.net/wiki/spaces/RCP/pages/..."
+            value={parentPageUrl}
+            onChange={(e) => onParentPageUrlChange(e.target.value)}
+            disabled={isSubmitting}
+          />
+          <p className="text-sm text-muted-foreground mt-2">
+            Enter the Confluence parent page URL where estimations will be exported.
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Create Estimations</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
           {items.map((item, index) => (
             <div key={index} className="flex gap-2 items-start">
               <div className="flex-1 space-y-2">
@@ -105,6 +126,7 @@ export function EstimationForm({ onSubmit, isSubmitting }: EstimationFormProps) 
         </form>
       </CardContent>
     </Card>
+    </div>
   )
 }
 

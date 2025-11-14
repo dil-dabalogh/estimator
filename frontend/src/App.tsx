@@ -9,6 +9,7 @@ import type { EstimationRequest, BatchResponse } from "@/types"
 function App() {
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [parentPageUrl, setParentPageUrl] = useState("")
   const { results, isConnected } = useEstimationWebSocket(sessionId)
 
   const handleSubmit = async (items: EstimationRequest[]) => {
@@ -38,10 +39,19 @@ function App() {
         </div>
 
         <div className="space-y-6">
-          <EstimationForm onSubmit={handleSubmit} isSubmitting={isSubmitting} />
+          <EstimationForm 
+            onSubmit={handleSubmit} 
+            isSubmitting={isSubmitting}
+            parentPageUrl={parentPageUrl}
+            onParentPageUrlChange={setParentPageUrl}
+          />
           
           {sessionId && results.length > 0 && (
-            <ResultsTable results={results} sessionId={sessionId} />
+            <ResultsTable 
+              results={results} 
+              sessionId={sessionId}
+              parentPageUrl={parentPageUrl}
+            />
           )}
 
           {sessionId && !isConnected && results.length === 0 && (

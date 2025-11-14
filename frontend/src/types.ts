@@ -38,3 +38,13 @@ export interface WebSocketMessage {
   results: EstimationResult[]
 }
 
+export interface ConfluenceExportRequest {
+  parent_page_url: string
+}
+
+export interface ConfluenceExportResponse {
+  success: boolean
+  page_url?: string
+  error?: string
+}
+

@@ -35,7 +35,7 @@ For experienced AWS administrators who want to deploy quickly with AWS Bedrock:
    aws bedrock list-foundation-models --region us-west-2
    ```
 
-3. **Deploy with SAM**:
+3. **Deploy with SAM** (environment variables are set via `--parameter-overrides`):
    ```bash
    cd infrastructure
    sam build --template template.yaml
@@ -52,6 +52,8 @@ For experienced AWS administrators who want to deploy quickly with AWS Bedrock:
        AtlassianEmail=your-email@company.com \
        AtlassianToken=your-atlassian-token
    ```
+   
+   **Note**: The `--parameter-overrides` values become Lambda environment variables. Alternatively, use `sam deploy --guided` without the overrides and you'll be prompted for each parameter interactively.
 
 4. **Note the API Gateway URL** from outputs and configure frontend
 
@@ -640,6 +642,40 @@ Before deploying, ensure you have completed:
 - [ ] Atlassian credentials ready (URL, email, API token)
 - [ ] S3 bucket for SAM artifacts created (or will be auto-created)
 
+### Where Do I Set Environment Variables?
+
+**Quick Answer**: You don't set environment variables directly. Instead, you set **SAM template parameters** during deployment, which SAM automatically converts to Lambda environment variables.
+
+**Three Ways to Set Parameters**:
+
+1. **Interactive (Recommended for first time)**:
+   ```bash
+   sam deploy --guided
+   # You'll be prompted for each parameter
+   ```
+
+2. **Command Line**:
+   ```bash
+   sam deploy --parameter-overrides \
+     LLMProvider=bedrock \
+     AWSRegionBedrock=us-west-2 \
+     AtlassianURL=https://... \
+     AtlassianEmail=user@example.com \
+     AtlassianToken=xxx
+   ```
+
+3. **Configuration File** (`infrastructure/samconfig.toml`):
+   ```toml
+   parameter_overrides = [
+     "LLMProvider=bedrock",
+     "AWSRegionBedrock=us-west-2",
+     "AtlassianURL=https://...",
+     ...
+   ]
+   ```
+
+See Step 3 below for detailed examples of each method.
+
 ### Step 1: Prepare Environment
 
 ```bash
@@ -677,7 +713,17 @@ sam build --template template.yaml
 
 ### Step 3: Deploy with AWS Bedrock Configuration
 
-**Option A: Guided Deployment (First Time)**
+**Understanding Environment Variables**
+
+The SAM template accepts **Parameters** (defined in `infrastructure/template.yaml`) that are automatically converted to Lambda environment variables. You can set these parameters in three ways:
+
+1. **Interactive mode** (`--guided`) - prompts for each parameter
+2. **Command-line** (`--parameter-overrides`) - pass parameters directly
+3. **Configuration file** (`samconfig.toml`) - store parameters for reuse
+
+**Option A: Guided Deployment (First Time) - Recommended**
+
+This interactive mode prompts you for all required parameters:
 
 ```bash
 sam deploy --guided \
@@ -707,6 +753,8 @@ Save arguments to configuration file [Y/n]: Y
 SAM configuration file [samconfig.toml]: (press Enter)
 SAM configuration environment [default]: (press Enter)
 ```
+
+**Note**: When you save arguments to the configuration file, subsequent deployments will use those saved values automatically.
 
 **Option B: Non-Interactive Deployment (Subsequent Deploys)**
 
@@ -763,6 +811,25 @@ Then deploy:
 ```bash
 sam deploy --config-file samconfig.toml
 ```
+
+**Summary: Where Environment Variables Are Set**
+
+| Parameter Name | Environment Variable in Lambda | How to Set |
+|----------------|-------------------------------|------------|
+| `LLMProvider` | `LLM_PROVIDER` | `--guided` prompt or `--parameter-overrides LLMProvider=bedrock` |
+| `OpenAIApiKey` | `OPENAI_API_KEY` | `--guided` prompt or `--parameter-overrides OpenAIApiKey=sk-xxx` |
+| `OpenAIModel` | `OPENAI_MODEL` | `--guided` prompt or `--parameter-overrides OpenAIModel=gpt-4` |
+| `AWSRegionBedrock` | `AWS_REGION` | `--guided` prompt or `--parameter-overrides AWSRegionBedrock=us-west-2` |
+| `BedrockModel` | `BEDROCK_MODEL` | `--guided` prompt or `--parameter-overrides BedrockModel=anthropic.claude-3-sonnet-20240229-v1:0` |
+| `AtlassianURL` | `ATLASSIAN_URL` | `--guided` prompt or `--parameter-overrides AtlassianURL=https://...` |
+| `AtlassianEmail` | `ATLASSIAN_USER_EMAIL` | `--guided` prompt or `--parameter-overrides AtlassianEmail=user@example.com` |
+| `AtlassianToken` | `ATLASSIAN_API_TOKEN` | `--guided` prompt or `--parameter-overrides AtlassianToken=xxx` |
+
+**Key Points**:
+- Parameters are defined in `infrastructure/template.yaml` (lines 11-44)
+- They are mapped to Lambda environment variables in the `EstimationFunction` resource (lines 65-74)
+- You don't set environment variables directly; you set **SAM parameters** which become environment variables
+- The mapping happens automatically during deployment
 
 ### Step 4: Monitor Deployment
 

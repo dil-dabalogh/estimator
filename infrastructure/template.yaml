@@ -8,6 +8,10 @@ Globals:
     MemorySize: 2048
     Runtime: python3.11
 
+# These Parameters are set during deployment and automatically become Lambda environment variables
+# Set them via: sam deploy --guided (interactive)
+# Or via: sam deploy --parameter-overrides LLMProvider=bedrock AWSRegionBedrock=us-west-2 ...
+# Or via: samconfig.toml configuration file
 Parameters:
   LLMProvider:
     Type: String
@@ -62,16 +66,17 @@ Resources:
     Properties:
       CodeUri: ../backend
       Handler: lambda_handler.handler
+      # Parameters (set during deployment) are mapped to Lambda environment variables here
       Environment:
         Variables:
-          LLM_PROVIDER: !Ref LLMProvider
-          OPENAI_API_KEY: !Ref OpenAIApiKey
-          OPENAI_MODEL: !Ref OpenAIModel
-          AWS_REGION: !Ref AWSRegionBedrock
-          BEDROCK_MODEL: !Ref BedrockModel
-          ATLASSIAN_URL: !Ref AtlassianURL
-          ATLASSIAN_USER_EMAIL: !Ref AtlassianEmail
-          ATLASSIAN_API_TOKEN: !Ref AtlassianToken
+          LLM_PROVIDER: !Ref LLMProvider              # From Parameter: LLMProvider
+          OPENAI_API_KEY: !Ref OpenAIApiKey           # From Parameter: OpenAIApiKey
+          OPENAI_MODEL: !Ref OpenAIModel              # From Parameter: OpenAIModel
+          AWS_REGION: !Ref AWSRegionBedrock           # From Parameter: AWSRegionBedrock
+          BEDROCK_MODEL: !Ref BedrockModel            # From Parameter: BedrockModel
+          ATLASSIAN_URL: !Ref AtlassianURL            # From Parameter: AtlassianURL
+          ATLASSIAN_USER_EMAIL: !Ref AtlassianEmail   # From Parameter: AtlassianEmail
+          ATLASSIAN_API_TOKEN: !Ref AtlassianToken    # From Parameter: AtlassianToken
       Events:
         ApiEvent:
           Type: HttpApi

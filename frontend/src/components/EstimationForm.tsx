@@ -118,12 +118,12 @@ export function EstimationForm({ onSubmit, isSubmitting, parentPageUrl, onParent
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Create Estimations</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+    <Card>
+      <CardHeader>
+        <CardTitle>Create Estimations</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="space-y-4">
           {items.map((item, index) => (
             <div key={index} className="flex gap-2 items-start">
               <div className="flex-1 space-y-2">
@@ -135,14 +135,14 @@ export function EstimationForm({ onSubmit, isSubmitting, parentPageUrl, onParent
                   required
                 />
                 <div className="relative">
-                  <Input
-                    type="text"
-                    placeholder="Unique name for this estimation"
-                    value={item.name}
-                    onChange={(e) => updateItem(index, "name", e.target.value)}
-                    required
+                <Input
+                  type="text"
+                  placeholder="Unique name for this estimation"
+                  value={item.name}
+                  onChange={(e) => updateItem(index, "name", e.target.value)}
+                  required
                     disabled={fetchingTitle[index]}
-                  />
+                />
                   {fetchingTitle[index] && (
                     <Loader2 className="h-4 w-4 animate-spin absolute right-3 top-3 text-muted-foreground" />
                   )}

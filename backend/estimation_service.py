@@ -57,7 +57,7 @@ def generate_ba_notes(
         f"Confluence Title: {title}\n\n"
         + (f"**BALLPARK CONSTRAINT: {ballpark}**\n\n" if ballpark else "")
         + f"Confluence Content (Markdown):\n\n{page_md}"
-    )
+        )
     
     user_messages = [user_instructions, user_payload]
     
@@ -100,7 +100,7 @@ def generate_pert_sheet(
         + (f"**BALLPARK TARGET: {ballpark}** ← YOUR TOTAL MUST ALIGN WITH THIS\n\n" if ballpark else "")
         + f"PERT Template:\n\n{pert_template_md}\n\n"
         + f"BA Estimation Notes:\n\n{ba_notes_md}"
-    )
+        )
     
     user_messages = [user_instructions, user_payload]
     

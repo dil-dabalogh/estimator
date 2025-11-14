@@ -29,6 +29,7 @@ htmlcov/
 # Environments
 .env
 .env.*
+!.env.example
 .venv/
 venv/
 backend/.venv/

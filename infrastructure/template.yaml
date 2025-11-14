@@ -1,0 +1,87 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Estimation Tool API
+
+Globals:
+  Function:
+    Timeout: 900
+    MemorySize: 2048
+    Runtime: python3.11
+
+Parameters:
+  LLMProvider:
+    Type: String
+    Default: openai
+    AllowedValues:
+      - openai
+      - bedrock
+  
+  OpenAIApiKey:
+    Type: String
+    NoEcho: true
+    Default: ""
+  
+  OpenAIModel:
+    Type: String
+    Default: gpt-4
+  
+  AWSRegionBedrock:
+    Type: String
+    Default: us-west-2
+  
+  BedrockModel:
+    Type: String
+    Default: anthropic.claude-3-sonnet-20240229-v1:0
+  
+  AtlassianURL:
+    Type: String
+  
+  AtlassianEmail:
+    Type: String
+  
+  AtlassianToken:
+    Type: String
+    NoEcho: true
+
+Resources:
+  EstimationApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      CorsConfiguration:
+        AllowOrigins:
+          - "*"
+        AllowMethods:
+          - GET
+          - POST
+          - OPTIONS
+        AllowHeaders:
+          - "*"
+
+  EstimationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend
+      Handler: lambda_handler.handler
+      Environment:
+        Variables:
+          LLM_PROVIDER: !Ref LLMProvider
+          OPENAI_API_KEY: !Ref OpenAIApiKey
+          OPENAI_MODEL: !Ref OpenAIModel
+          AWS_REGION: !Ref AWSRegionBedrock
+          BEDROCK_MODEL: !Ref BedrockModel
+          ATLASSIAN_URL: !Ref AtlassianURL
+          ATLASSIAN_USER_EMAIL: !Ref AtlassianEmail
+          ATLASSIAN_API_TOKEN: !Ref AtlassianToken
+      Events:
+        ApiEvent:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref EstimationApi
+            Path: /{proxy+}
+            Method: ANY
+
+Outputs:
+  EstimationApiUrl:
+    Description: API Gateway endpoint URL
+    Value: !Sub "https://${EstimationApi}.execute-api.${AWS::Region}.amazonaws.com"
+

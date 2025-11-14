@@ -1,5 +1,5 @@
 import re
-from typing import Optional
+from typing import Optional, Dict
 from models import TShirtSize
 
 
@@ -18,71 +18,71 @@ def calculate_tshirt_size(man_weeks: float) -> TShirtSize:
         return TShirtSize.XXL
 
 
+# Conversion factors: time unit -> manweeks multiplier
+DURATION_TO_WEEKS: Dict[str, float] = {
+    'day': 0.2,      # 5 working days per week
+    'week': 1.0,     # base unit
+    'month': 4.33,   # average month
+    'quarter': 13.0, # 13 weeks per quarter
+    'year': 52.0,    # 52 weeks per year
+    'yr': 52.0,      # abbreviation
+}
+
+
 def normalize_duration_to_weeks(value: float, unit: str) -> float:
     """
-    Convert duration from any time unit to manweeks.
+    Convert duration from any time unit to manweeks using standardized conversion factors.
     
-    Conversion factors (approximate):
-    - 1 day = 0.2 weeks (5 working days per week)
-    - 1 week = 1 week
-    - 1 month = 4.33 weeks (average)
-    - 1 quarter = 13 weeks
-    - 1 year = 52 weeks
+    Args:
+        value: Numeric duration value
+        unit: Time unit (e.g., 'days', 'weeks', 'months', 'quarters', 'years')
+    
+    Returns:
+        Duration in manweeks
     """
-    unit_lower = unit.lower().strip()
+    unit_normalized = unit.lower().strip().rstrip('s')  # normalize plurals
     
-    # Days
-    if 'day' in unit_lower:
-        return value * 0.2
-    # Weeks (including manweeks, person-weeks, etc.)
-    elif 'week' in unit_lower:
-        return value
-    # Months
-    elif 'month' in unit_lower:
-        return value * 4.33
-    # Quarters
-    elif 'quarter' in unit_lower or 'q' == unit_lower:
-        return value * 13
-    # Years
-    elif 'year' in unit_lower or 'yr' in unit_lower:
-        return value * 52
-    else:
-        # Default to weeks if unit is unclear
-        return value
+    # Check each known unit pattern
+    for unit_key, multiplier in DURATION_TO_WEEKS.items():
+        if unit_key in unit_normalized or unit_normalized == unit_key:
+            return value * multiplier
+    
+    # Default to weeks if unit is unrecognized
+    return value
 
 
 def parse_man_weeks_from_pert(pert_markdown: str) -> Optional[float]:
     """
     Extract total duration from PERT markdown and normalize to manweeks.
     
-    Looks for patterns like:
+    Searches for duration patterns near total/summary keywords:
     - "Total: 30 manweeks"
-    - "Grand Total: 6 months"
-    - "Overall: 45 weeks"
+    - "Grand Total: 6 months" 
     - "Expected (E): 12 weeks"
     
-    Supports time units: days, weeks, months, quarters, years
+    Returns:
+        Duration in manweeks, or None if not found
     """
-    # Pattern to capture: number + time unit
-    # Looks for "total", "overall", "sum", "grand", or "expected/e" followed by value and unit
-    patterns = [
-        r"(?:grand\s+)?(?:total|overall|sum)[\s:=]+(\d+(?:\.\d+)?)\s*(man[\s-]?weeks?|weeks?|months?|days?|quarters?|years?|yrs?)",
-        r"(?:expected|e)[\s:=\(]+(\d+(?:\.\d+)?)\s*(man[\s-]?weeks?|weeks?|months?|days?|quarters?|years?|yrs?)",
-        r"(\d+(?:\.\d+)?)\s*(man[\s-]?weeks?|weeks?|months?|days?|quarters?|years?|yrs?)\s*(?:total|overall|grand)",
-    ]
+    # Build unit pattern dynamically from known units
+    unit_pattern = r'(?:man[\s-]?)?(?:' + '|'.join(DURATION_TO_WEEKS.keys()) + r')s?'
     
-    for pattern in patterns:
-        matches = re.findall(pattern, pert_markdown, re.IGNORECASE)
-        if matches:
-            try:
-                # matches is a list of tuples: [(value, unit), ...]
-                # Take the last match (most likely the grand total)
-                value_str, unit = matches[-1]
-                value = float(value_str)
-                weeks = normalize_duration_to_weeks(value, unit)
-                return weeks
-            except (ValueError, IndexError):
-                continue
+    # Keywords that indicate a total/summary line
+    total_keywords = r'(?:grand\s+)?(?:total|overall|sum|expected|e)'
+    
+    # Comprehensive pattern: keyword + optional separator + number + unit
+    pattern = rf'{total_keywords}[\s:=\(]*(\d+(?:\.\d+)?)\s*({unit_pattern})'
+    
+    # Find all matches
+    matches = re.findall(pattern, pert_markdown, re.IGNORECASE)
+    
+    if matches:
+        try:
+            # Take the last match (most likely the grand total)
+            value_str, unit = matches[-1]
+            value = float(value_str)
+            return normalize_duration_to_weeks(value, unit)
+        except (ValueError, IndexError):
+            pass
     
     return None
 

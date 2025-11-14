@@ -38,9 +38,10 @@ def load_config() -> AppConfig:
             temperature=temperature,
         )
     else:
-        bedrock_region = os.getenv("AWS_REGION")
+        # Use BEDROCK_REGION if explicitly set, otherwise fall back to Lambda's AWS_REGION
+        bedrock_region = os.getenv("BEDROCK_REGION") or os.getenv("AWS_REGION")
         if not bedrock_region:
-            raise ValueError("AWS region not found")
+            raise ValueError("AWS region not found (set BEDROCK_REGION or use Lambda's AWS_REGION)")
         
         model = os.getenv("BEDROCK_MODEL")
         agent_id = os.getenv("BEDROCK_AGENT_ID")

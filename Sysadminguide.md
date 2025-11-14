@@ -45,7 +45,7 @@ For experienced AWS administrators who want to deploy quickly with AWS Bedrock:
      --capabilities CAPABILITY_IAM \
      --parameter-overrides \
        LLMProvider=bedrock \
-       AWSRegionBedrock=us-west-2 \
+       BedrockRegion=us-west-2 \
        BedrockModel=anthropic.claude-3-sonnet-20240229-v1:0 \
        OpenAIApiKey="" \
        AtlassianURL=https://your-company.atlassian.net/wiki \
@@ -560,7 +560,7 @@ The application supports the following Bedrock configurations:
 | Variable | Description | Default | Example |
 |----------|-------------|---------|---------|
 | `LLM_PROVIDER` | LLM provider type | `openai` | `bedrock` |
-| `AWS_REGION` | AWS region for Bedrock | (required) | `us-west-2` |
+| `BEDROCK_REGION` | AWS region for Bedrock (optional) | Lambda's AWS_REGION | `us-west-2` |
 | `BEDROCK_MODEL` | Bedrock model ID | `anthropic.claude-3-sonnet-20240229-v1:0` | See table above |
 | `BEDROCK_TEMPERATURE` | Sampling temperature (0.0-1.0) | `0.2` | `0.2` (deterministic), `0.7` (creative) |
 | `BEDROCK_AGENT_ID` | (Optional) Bedrock Agent ID | - | `AGENT123ABC` |
@@ -601,7 +601,7 @@ Bedrock Agents provide enhanced capabilities with action groups, knowledge bases
    sam deploy --guided \
      --parameter-overrides \
        LLMProvider=bedrock \
-       AWSRegionBedrock=us-west-2 \
+       BedrockRegion=us-west-2 \
        BedrockAgentId=YOUR_AGENT_ID \
        BedrockAgentAliasId=YOUR_ALIAS_ID
    ```
@@ -658,7 +658,7 @@ Before deploying, ensure you have completed:
    ```bash
    sam deploy --parameter-overrides \
      LLMProvider=bedrock \
-     AWSRegionBedrock=us-west-2 \
+     BedrockRegion=us-west-2 \
      AtlassianURL=https://... \
      AtlassianEmail=user@example.com \
      AtlassianToken=xxx
@@ -668,7 +668,7 @@ Before deploying, ensure you have completed:
    ```toml
    parameter_overrides = [
      "LLMProvider=bedrock",
-     "AWSRegionBedrock=us-west-2",
+     "BedrockRegion=us-west-2",
      "AtlassianURL=https://...",
      ...
    ]
@@ -738,7 +738,7 @@ You will be prompted for parameters. Enter the following for Bedrock:
 Parameter LLMProvider [openai]: bedrock
 Parameter OpenAIApiKey []: (leave empty, press Enter)
 Parameter OpenAIModel [gpt-4]: (leave default or press Enter)
-Parameter AWSRegionBedrock [us-west-2]: us-west-2
+Parameter BedrockRegion [us-west-2]: us-west-2
 Parameter BedrockModel [anthropic.claude-3-sonnet-20240229-v1:0]: (press Enter for default)
 Parameter AtlassianURL []: https://your-company.atlassian.net/wiki
 Parameter AtlassianEmail []: your-email@company.com
@@ -773,7 +773,7 @@ sam deploy \
   --capabilities CAPABILITY_IAM \
   --parameter-overrides \
     LLMProvider=bedrock \
-    AWSRegionBedrock=us-west-2 \
+    BedrockRegion=us-west-2 \
     BedrockModel=anthropic.claude-3-sonnet-20240229-v1:0 \
     OpenAIApiKey="" \
     AtlassianURL=https://your-company.atlassian.net/wiki \
@@ -798,7 +798,7 @@ region = "us-west-2"
 capabilities = "CAPABILITY_IAM"
 parameter_overrides = [
   "LLMProvider=bedrock",
-  "AWSRegionBedrock=us-west-2",
+  "BedrockRegion=us-west-2",
   "BedrockModel=anthropic.claude-3-sonnet-20240229-v1:0",
   "OpenAIApiKey=",
   "AtlassianURL=https://your-company.atlassian.net/wiki",
@@ -819,7 +819,7 @@ sam deploy --config-file samconfig.toml
 | `LLMProvider` | `LLM_PROVIDER` | `--guided` prompt or `--parameter-overrides LLMProvider=bedrock` |
 | `OpenAIApiKey` | `OPENAI_API_KEY` | `--guided` prompt or `--parameter-overrides OpenAIApiKey=sk-xxx` |
 | `OpenAIModel` | `OPENAI_MODEL` | `--guided` prompt or `--parameter-overrides OpenAIModel=gpt-4` |
-| `AWSRegionBedrock` | `AWS_REGION` | `--guided` prompt or `--parameter-overrides AWSRegionBedrock=us-west-2` |
+| `BedrockRegion` | `BEDROCK_REGION` | `--guided` prompt or `--parameter-overrides BedrockRegion=us-west-2` |
 | `BedrockModel` | `BEDROCK_MODEL` | `--guided` prompt or `--parameter-overrides BedrockModel=anthropic.claude-3-sonnet-20240229-v1:0` |
 | `AtlassianURL` | `ATLASSIAN_URL` | `--guided` prompt or `--parameter-overrides AtlassianURL=https://...` |
 | `AtlassianEmail` | `ATLASSIAN_USER_EMAIL` | `--guided` prompt or `--parameter-overrides AtlassianEmail=user@example.com` |

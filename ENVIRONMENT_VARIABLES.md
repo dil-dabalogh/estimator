@@ -22,7 +22,7 @@ SAM will prompt you for each parameter:
 Parameter LLMProvider [openai]: bedrock
 Parameter OpenAIApiKey []: (leave empty for Bedrock)
 Parameter OpenAIModel [gpt-4]: (leave default)
-Parameter AWSRegionBedrock [us-west-2]: us-west-2
+Parameter BedrockRegion [us-west-2]: us-west-2
 Parameter BedrockModel [anthropic.claude-3-sonnet-20240229-v1:0]: (press Enter)
 Parameter AtlassianURL []: https://your-company.atlassian.net/wiki
 Parameter AtlassianEmail []: your-email@company.com
@@ -42,7 +42,7 @@ sam deploy \
   --capabilities CAPABILITY_IAM \
   --parameter-overrides \
     LLMProvider=bedrock \
-    AWSRegionBedrock=us-west-2 \
+    BedrockRegion=us-west-2 \
     BedrockModel=anthropic.claude-3-sonnet-20240229-v1:0 \
     OpenAIApiKey="" \
     AtlassianURL=https://your-company.atlassian.net/wiki \
@@ -66,7 +66,7 @@ region = "us-west-2"
 capabilities = "CAPABILITY_IAM"
 parameter_overrides = [
   "LLMProvider=bedrock",
-  "AWSRegionBedrock=us-west-2",
+  "BedrockRegion=us-west-2",
   "BedrockModel=anthropic.claude-3-sonnet-20240229-v1:0",
   "OpenAIApiKey=",
   "AtlassianURL=https://your-company.atlassian.net/wiki",
@@ -90,7 +90,7 @@ sam deploy --config-file samconfig.toml
 | `LLMProvider` | `LLM_PROVIDER` | LLM provider to use | `bedrock` or `openai` |
 | `OpenAIApiKey` | `OPENAI_API_KEY` | OpenAI API key | `sk-...` (leave empty for Bedrock) |
 | `OpenAIModel` | `OPENAI_MODEL` | OpenAI model name | `gpt-4` |
-| `AWSRegionBedrock` | `AWS_REGION` | AWS region for Bedrock | `us-west-2` |
+| `BedrockRegion` | `BEDROCK_REGION` | AWS region for Bedrock (optional) | `us-west-2` (defaults to Lambda's region) |
 | `BedrockModel` | `BEDROCK_MODEL` | Bedrock model ID | `anthropic.claude-3-sonnet-20240229-v1:0` |
 | `AtlassianURL` | `ATLASSIAN_URL` | Confluence base URL | `https://company.atlassian.net/wiki` |
 | `AtlassianEmail` | `ATLASSIAN_USER_EMAIL` | Atlassian user email | `user@company.com` |
@@ -142,7 +142,7 @@ aws lambda update-function-configuration \
   --function-name $FUNCTION_NAME \
   --environment "Variables={
     LLM_PROVIDER=bedrock,
-    AWS_REGION=us-west-2,
+    BEDROCK_REGION=us-west-2,
     BEDROCK_MODEL=anthropic.claude-3-haiku-20240307-v1:0,
     ATLASSIAN_URL=https://your-company.atlassian.net/wiki,
     ATLASSIAN_USER_EMAIL=user@company.com,

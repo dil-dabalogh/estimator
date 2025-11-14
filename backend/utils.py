@@ -4,15 +4,15 @@ from models import TShirtSize
 
 
 def calculate_tshirt_size(man_weeks: float) -> TShirtSize:
-    if man_weeks < 1:
+    if man_weeks < 2:
         return TShirtSize.XS
-    elif man_weeks < 6:
+    elif man_weeks < 4:
         return TShirtSize.S
-    elif man_weeks < 12:
+    elif man_weeks < 8:
         return TShirtSize.M
-    elif man_weeks < 40:
+    elif man_weeks <= 16:
         return TShirtSize.L
-    elif man_weeks < 60:
+    elif man_weeks <= 26:
         return TShirtSize.XL
     else:
         return TShirtSize.XXL

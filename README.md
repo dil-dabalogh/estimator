@@ -39,12 +39,12 @@ The application will be available at `http://localhost:5173`
 
 ## T-shirt Size Thresholds
 
-- XS: < 1 week
-- S: < 6 weeks
-- M: < 12 weeks
-- L: < 40 weeks
-- XL: < 60 weeks
-- XXL: ≥ 60 weeks
+- XS: < 2 weeks
+- S: 2-4 weeks
+- M: 4-8 weeks
+- L: 8-16 weeks
+- XL: 16-26 weeks
+- XXL: ≥ 26 weeks
 
 ## Documentation
 

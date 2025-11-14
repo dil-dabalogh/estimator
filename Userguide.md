@@ -61,12 +61,12 @@ Once you submit, you'll see a results table with real-time progress for each est
 
 The tool automatically calculates a T-shirt size based on the PERT man-week estimate:
 
-- XS (Green): < 1 week
-- S (Blue): < 6 weeks
-- M (Yellow): < 12 weeks
-- L (Orange): < 40 weeks
-- XL (Red): < 60 weeks
-- XXL (Purple): ≥ 60 weeks
+- XS (Green): < 2 weeks
+- S (Blue): 2-4 weeks
+- M (Yellow): 4-8 weeks
+- L (Orange): 8-16 weeks
+- XL (Red): 16-26 weeks
+- XXL (Purple): ≥ 26 weeks
 
 ### Man-week Estimates
 

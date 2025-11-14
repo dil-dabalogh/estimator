@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import type { EstimationResult, TShirtSize, ConfluenceExportRequest, ConfluenceExportResponse } from "@/types"
 import { API_BASE_URL } from "@/config"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import axios from "axios"
 
 interface ResultsTableProps {
@@ -53,6 +53,11 @@ interface ExportState {
 
 export function ResultsTable({ results, sessionId, parentPageUrl }: ResultsTableProps) {
   const [exportState, setExportState] = useState<ExportState>({})
+
+  // Reset export state when session changes (new estimations generated)
+  useEffect(() => {
+    setExportState({})
+  }, [sessionId])
 
   const exportToConfluence = async (name: string) => {
     if (!parentPageUrl) {
@@ -127,54 +132,54 @@ export function ResultsTable({ results, sessionId, parentPageUrl }: ResultsTable
             {results.map((result) => {
               const exportStatus = exportState[result.name]
               return (
-                <TableRow key={result.name}>
-                  <TableCell className="font-medium">{result.name}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      {result.status === "completed" && (
-                        <CheckCircle2 className="h-4 w-4 text-green-500" />
-                      )}
-                      {result.status === "failed" && (
-                        <XCircle className="h-4 w-4 text-red-500" />
-                      )}
-                      {!["completed", "failed"].includes(result.status) && (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      )}
-                      <span className="text-sm">{result.progress || result.status}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {result.tshirt_size && (
-                      <Badge className={tshirtColors[result.tshirt_size]}>
-                        {result.tshirt_size}
-                      </Badge>
+              <TableRow key={result.name}>
+                <TableCell className="font-medium">{result.name}</TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-2">
+                    {result.status === "completed" && (
+                      <CheckCircle2 className="h-4 w-4 text-green-500" />
                     )}
-                  </TableCell>
-                  <TableCell>
-                    {result.man_weeks != null && result.man_weeks.toFixed(1)}
-                  </TableCell>
-                  <TableCell>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={!result.ba_notes_available}
-                      onClick={() => downloadFile(sessionId, result.name, "ba-notes")}
-                    >
-                      <Download className="h-3 w-3 mr-1" />
-                      Download
-                    </Button>
-                  </TableCell>
-                  <TableCell>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={!result.pert_available}
-                      onClick={() => downloadFile(sessionId, result.name, "pert")}
-                    >
-                      <Download className="h-3 w-3 mr-1" />
-                      Download
-                    </Button>
-                  </TableCell>
+                    {result.status === "failed" && (
+                      <XCircle className="h-4 w-4 text-red-500" />
+                    )}
+                    {!["completed", "failed"].includes(result.status) && (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    )}
+                    <span className="text-sm">{result.progress || result.status}</span>
+                  </div>
+                </TableCell>
+                <TableCell>
+                  {result.tshirt_size && (
+                    <Badge className={tshirtColors[result.tshirt_size]}>
+                      {result.tshirt_size}
+                    </Badge>
+                  )}
+                </TableCell>
+                <TableCell>
+                  {result.man_weeks != null && result.man_weeks.toFixed(1)}
+                </TableCell>
+                <TableCell>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={!result.ba_notes_available}
+                    onClick={() => downloadFile(sessionId, result.name, "ba-notes")}
+                  >
+                    <Download className="h-3 w-3 mr-1" />
+                    Download
+                  </Button>
+                </TableCell>
+                <TableCell>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={!result.pert_available}
+                    onClick={() => downloadFile(sessionId, result.name, "pert")}
+                  >
+                    <Download className="h-3 w-3 mr-1" />
+                    Download
+                  </Button>
+                </TableCell>
                   <TableCell>
                     <div className="flex flex-col gap-2">
                       {exportStatus?.success ? (
@@ -212,7 +217,7 @@ export function ResultsTable({ results, sessionId, parentPageUrl }: ResultsTable
                       )}
                     </div>
                   </TableCell>
-                </TableRow>
+              </TableRow>
               )
             })}
           </TableBody>

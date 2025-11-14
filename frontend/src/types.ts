@@ -48,3 +48,8 @@ export interface ConfluenceExportResponse {
   error?: string
 }
 
+export interface FetchTitleResponse {
+  title: string
+  error?: string
+}
+

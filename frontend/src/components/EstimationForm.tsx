@@ -1,9 +1,11 @@
-import { useState } from "react"
-import { Plus, X } from "lucide-react"
+import { useState, useEffect, useRef } from "react"
+import { Plus, X, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import type { EstimationRequest } from "@/types"
+import type { EstimationRequest, FetchTitleResponse } from "@/types"
+import { API_BASE_URL } from "@/config"
+import axios from "axios"
 
 interface EstimationFormProps {
   onSubmit: (items: EstimationRequest[]) => void
@@ -16,6 +18,8 @@ export function EstimationForm({ onSubmit, isSubmitting, parentPageUrl, onParent
   const [items, setItems] = useState<EstimationRequest[]>([
     { url: "", name: "", ballpark: "" }
   ])
+  const [fetchingTitle, setFetchingTitle] = useState<{ [key: number]: boolean }>({})
+  const debounceTimers = useRef<{ [key: number]: NodeJS.Timeout }>({})
 
   const addItem = () => {
     setItems([...items, { url: "", name: "", ballpark: "" }])
@@ -27,11 +31,57 @@ export function EstimationForm({ onSubmit, isSubmitting, parentPageUrl, onParent
     }
   }
 
+  const fetchTitle = async (url: string, index: number) => {
+    if (!url || url.length < 10) return
+    
+    setFetchingTitle(prev => ({ ...prev, [index]: true }))
+    
+    try {
+      const response = await axios.get<FetchTitleResponse>(
+        `${API_BASE_URL}/api/fetch-title`,
+        { params: { url } }
+      )
+      
+      if (response.data.title && !response.data.error) {
+        const newItems = [...items]
+        // Only update if the name field is empty or wasn't manually edited
+        if (!newItems[index].name) {
+          newItems[index] = { ...newItems[index], name: response.data.title }
+          setItems(newItems)
+        }
+      }
+    } catch (error) {
+      console.error("Failed to fetch title:", error)
+    } finally {
+      setFetchingTitle(prev => ({ ...prev, [index]: false }))
+    }
+  }
+
   const updateItem = (index: number, field: keyof EstimationRequest, value: string) => {
     const newItems = [...items]
     newItems[index] = { ...newItems[index], [field]: value }
     setItems(newItems)
+    
+    // Auto-fetch title when URL changes
+    if (field === "url" && value) {
+      // Clear existing timer for this index
+      if (debounceTimers.current[index]) {
+        clearTimeout(debounceTimers.current[index])
+      }
+      
+      // Set new timer to fetch after 500ms of no typing
+      debounceTimers.current[index] = setTimeout(() => {
+        fetchTitle(value, index)
+      }, 500)
+    }
   }
+  
+  // Cleanup timers on unmount
+  useEffect(() => {
+    return () => {
+      Object.values(debounceTimers.current).forEach(timer => clearTimeout(timer))
+    }
+  }, [])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -81,13 +131,19 @@ export function EstimationForm({ onSubmit, isSubmitting, parentPageUrl, onParent
                   onChange={(e) => updateItem(index, "url", e.target.value)}
                   required
                 />
-                <Input
-                  type="text"
-                  placeholder="Unique name for this estimation"
-                  value={item.name}
-                  onChange={(e) => updateItem(index, "name", e.target.value)}
-                  required
-                />
+                <div className="relative">
+                  <Input
+                    type="text"
+                    placeholder="Unique name for this estimation"
+                    value={item.name}
+                    onChange={(e) => updateItem(index, "name", e.target.value)}
+                    required
+                    disabled={fetchingTitle[index]}
+                  />
+                  {fetchingTitle[index] && (
+                    <Loader2 className="h-4 w-4 animate-spin absolute right-3 top-3 text-muted-foreground" />
+                  )}
+                </div>
                 <Input
                   type="text"
                   placeholder="Ballpark (optional, e.g., '30 manweeks')"

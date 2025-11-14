@@ -31,14 +31,29 @@ htmlcov/
 .env.*
 .venv/
 venv/
+backend/.venv/
+backend/venv/
 
 # IDEs and OS
 .DS_Store
 .idea/
 .vscode/
 
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+frontend/.vite/
+
+# Temporary files
+/tmp/
+*.tmp
+
 # Project: generated estimation outputs (keep folder only)
 /estimations/*
 !/estimations/.gitkeep
+
+# Configuration files with secrets
+orchestrator.conf
 
 

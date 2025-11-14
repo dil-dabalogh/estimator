@@ -85,7 +85,7 @@ export function ResultsTable({ results, sessionId }: ResultsTableProps) {
                   )}
                 </TableCell>
                 <TableCell>
-                  {result.man_weeks !== undefined && result.man_weeks.toFixed(1)}
+                  {result.man_weeks != null && result.man_weeks.toFixed(1)}
                 </TableCell>
                 <TableCell>
                   <Button

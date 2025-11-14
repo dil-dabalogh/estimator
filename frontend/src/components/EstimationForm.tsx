@@ -43,12 +43,15 @@ export function EstimationForm({ onSubmit, isSubmitting, parentPageUrl, onParent
       )
       
       if (response.data.title && !response.data.error) {
-        const newItems = [...items]
-        // Only update if the name field is empty or wasn't manually edited
-        if (!newItems[index].name) {
-          newItems[index] = { ...newItems[index], name: response.data.title }
-          setItems(newItems)
-        }
+        // Use functional update to get the current state
+        setItems(currentItems => {
+          const newItems = [...currentItems]
+          // Only update if the name field is empty or wasn't manually edited
+          if (!newItems[index].name) {
+            newItems[index] = { ...newItems[index], name: response.data.title }
+          }
+          return newItems
+        })
       }
     } catch (error) {
       console.error("Failed to fetch title:", error)

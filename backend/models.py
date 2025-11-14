@@ -24,7 +24,7 @@ class TShirtSize(str, Enum):
 class EstimationRequest(BaseModel):
     url: str = Field(..., description="Confluence or Jira URL")
     name: str = Field(..., min_length=1, description="Unique name for this estimation")
-    ballpark: Optional[str] = Field(None, description="Optional ballpark estimation (e.g., '30 manweeks')")
+    ballpark: Optional[str] = Field(None, description="Optional ballpark estimation (e.g., '30 week')")
 
 
 class BatchRequest(BaseModel):

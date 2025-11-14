@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react"
-import { EstimationResult, WebSocketMessage } from "@/types"
+import type { EstimationResult, WebSocketMessage } from "@/types"
 import { WS_BASE_URL } from "@/config"
 
 export function useEstimationWebSocket(sessionId: string | null) {

@@ -8,6 +8,7 @@ A modern web application for generating Business Analyst (BA) estimation notes a
 - Real-time progress updates via WebSocket
 - Parallel processing of multiple estimations
 - Support for both Confluence pages and Jira issues
+- **Auto-fetch page titles from Confluence and Jira URLs**
 - T-shirt size calculation (XS, S, M, L, XL, XXL)
 - Man-week estimates from PERT analysis
 - Download generated BA notes and PERT estimates as Markdown files
@@ -51,6 +52,7 @@ The application will be available at `http://localhost:5173`
 - [System Administrator Guide](Sysadminguide.md) - Deployment to AWS Lambda
 - [Development Guide](Developmentguide.md) - Local development and architecture
 - [Confluence Export Implementation](CONFLUENCE_EXPORT_IMPLEMENTATION.md) - Details on the Confluence export feature
+- [Auto-Fetch Title Implementation](AUTO_FETCH_TITLE_IMPLEMENTATION.md) - Details on the auto-fetch title feature
 
 ## Technology Stack
 

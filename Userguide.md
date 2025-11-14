@@ -23,7 +23,9 @@ Before creating estimations, you can configure where exported estimations will b
 ### Single Estimation
 
 1. Enter a Confluence page URL or Jira issue URL
-2. Provide a unique name for this estimation
+2. The name field will automatically populate with the page/issue title after a brief moment
+   - You can edit this name to customize it
+   - A loading spinner appears while fetching the title
 3. Optionally, enter a ballpark estimate (e.g., "30 manweeks")
 4. Click "Generate Estimations"
 
@@ -122,6 +124,8 @@ If an estimation fails:
 
 ## Tips
 
+- Names are automatically fetched from Confluence/Jira pages when you enter a URL
+- You can edit the auto-populated name before submitting
 - Use descriptive names for your estimations for easy identification
 - The ballpark parameter helps guide the AI to align estimates
 - Multiple estimations are processed in parallel for speed

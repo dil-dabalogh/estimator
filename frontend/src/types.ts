@@ -40,6 +40,7 @@ export interface WebSocketMessage {
 
 export interface ConfluenceExportRequest {
   parent_page_url: string
+  overwrite?: boolean
 }
 
 export interface ConfluenceExportResponse {

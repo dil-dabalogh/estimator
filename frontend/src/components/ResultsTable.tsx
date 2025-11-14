@@ -59,7 +59,7 @@ export function ResultsTable({ results, sessionId, parentPageUrl }: ResultsTable
     setExportState({})
   }, [sessionId])
 
-  const exportToConfluence = async (name: string) => {
+  const exportToConfluence = async (name: string, overwrite: boolean = false) => {
     if (!parentPageUrl) {
       setExportState(prev => ({
         ...prev,
@@ -74,7 +74,10 @@ export function ResultsTable({ results, sessionId, parentPageUrl }: ResultsTable
     }))
 
     try {
-      const request: ConfluenceExportRequest = { parent_page_url: parentPageUrl }
+      const request: ConfluenceExportRequest = { 
+        parent_page_url: parentPageUrl,
+        overwrite: overwrite
+      }
       const response = await axios.post<ConfluenceExportResponse>(
         `${API_BASE_URL}/api/estimations/${sessionId}/${name}/export-confluence`,
         request
@@ -100,6 +103,26 @@ export function ResultsTable({ results, sessionId, parentPageUrl }: ResultsTable
         }))
       }
     } catch (error: any) {
+      // Handle 409 (page already exists) - ask for confirmation
+      if (error.response?.status === 409 && !overwrite) {
+        const confirmOverwrite = window.confirm(
+          `A page with the name "${name}" already exists in Confluence.\n\nDo you want to overwrite it with the new estimation?`
+        )
+        
+        if (confirmOverwrite) {
+          // Retry with overwrite=true
+          await exportToConfluence(name, true)
+          return
+        } else {
+          // User cancelled
+          setExportState(prev => ({
+            ...prev,
+            [name]: { loading: false, success: false, error: "Export cancelled by user" }
+          }))
+          return
+        }
+      }
+      
       const errorMessage = error.response?.data?.detail || error.message || "Export failed"
       setExportState(prev => ({
         ...prev,

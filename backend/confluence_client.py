@@ -173,20 +173,120 @@ def markdown_to_confluence_storage(markdown: str) -> str:
     return storage
 
 
+def find_page_by_title(cfg: ConfluenceConfig, space_key: str, title: str) -> Optional[str]:
+    """
+    Find a page ID by title in a specific space.
+    
+    Returns:
+        Page ID if found, None otherwise
+    """
+    session = requests.Session()
+    session.auth = (cfg.email, cfg.api_token)
+    session.headers.update({"Accept": "application/json"})
+    
+    # Search for page by title in space
+    search_url = f"{cfg.base_url}/rest/api/content"
+    params = {
+        "spaceKey": space_key,
+        "title": title,
+        "type": "page"
+    }
+    
+    try:
+        resp = session.get(search_url, params=params, timeout=30)
+        if resp.status_code == 200:
+            data = resp.json()
+            results = data.get("results", [])
+            if results and len(results) > 0:
+                return results[0].get("id")
+    except Exception:
+        pass
+    
+    return None
+
+
+def update_confluence_page(
+    cfg: ConfluenceConfig,
+    page_id: str,
+    title: str,
+    markdown_content: str,
+    space_key: str
+) -> Tuple[bool, str, Optional[str]]:
+    """
+    Update an existing Confluence page with new content.
+    
+    Returns:
+        Tuple of (success: bool, page_url: str, error_message: Optional[str])
+    """
+    session = requests.Session()
+    session.auth = (cfg.email, cfg.api_token)
+    session.headers.update({
+        "Accept": "application/json",
+        "Content-Type": "application/json"
+    })
+    
+    # Get current version number
+    get_url = f"{cfg.base_url}/rest/api/content/{page_id}?expand=version"
+    try:
+        resp = session.get(get_url, timeout=30)
+        if resp.status_code != 200:
+            return False, "", "Failed to get current page version"
+        
+        current_data = resp.json()
+        current_version = current_data.get("version", {}).get("number", 0)
+        
+        # Convert markdown to storage format
+        storage_content = markdown_to_confluence_storage(markdown_content)
+        
+        # Prepare update data
+        update_data = {
+            "version": {"number": current_version + 1},
+            "title": title,
+            "type": "page",
+            "body": {
+                "storage": {
+                    "value": storage_content,
+                    "representation": "storage"
+                }
+            }
+        }
+        
+        # Update the page
+        update_url = f"{cfg.base_url}/rest/api/content/{page_id}"
+        resp = session.put(update_url, json=update_data, timeout=30)
+        
+        if resp.status_code == 200:
+            page_url = f"{cfg.base_url}/spaces/{space_key}/pages/{page_id}"
+            return True, page_url, None
+        else:
+            error_detail = resp.text
+            try:
+                error_json = resp.json()
+                error_detail = error_json.get("message", error_detail)
+            except Exception:
+                pass
+            return False, "", f"Failed to update page (status {resp.status_code}): {error_detail}"
+            
+    except requests.exceptions.RequestException as e:
+        return False, "", f"Network error: {str(e)}"
+
+
 def create_confluence_page(
     cfg: ConfluenceConfig, 
     title: str, 
     markdown_content: str, 
-    parent_page_url: str
+    parent_page_url: str,
+    overwrite: bool = False
 ) -> Tuple[bool, str, Optional[str]]:
     """
-    Create a new Confluence page with markdown content.
+    Create a new Confluence page with markdown content, or update if exists and overwrite=True.
     
     Args:
         cfg: Confluence configuration
         title: Page title
         markdown_content: Page content in markdown format
         parent_page_url: URL of parent page
+        overwrite: If True, update existing page instead of failing
         
     Returns:
         Tuple of (success: bool, page_url: str, error_message: Optional[str])
@@ -222,6 +322,12 @@ def create_confluence_page(
             }
         }
     }
+    
+    # If overwrite is enabled, check if page exists and update it
+    if overwrite:
+        existing_page_id = find_page_by_title(cfg, space_key, title)
+        if existing_page_id:
+            return update_confluence_page(cfg, existing_page_id, title, markdown_content, space_key)
     
     # Create the page using v1 API (more reliable for page creation)
     create_url = f"{cfg.base_url}/rest/api/content"

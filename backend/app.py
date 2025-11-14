@@ -155,12 +155,13 @@ async def export_to_confluence(session_id: str, name: str, request: ConfluenceEx
         config.atlassian_token
     )
     
-    # Create the page
+    # Create the page (or update if overwrite is requested)
     success, page_url, error = create_confluence_page(
         confluence_cfg,
         name,
         combined_content,
-        request.parent_page_url
+        request.parent_page_url,
+        overwrite=request.overwrite
     )
     
     if success:

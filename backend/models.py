@@ -53,6 +53,7 @@ class WebSocketMessage(BaseModel):
 
 class ConfluenceExportRequest(BaseModel):
     parent_page_url: str = Field(..., description="URL of the parent Confluence page")
+    overwrite: bool = Field(default=False, description="If true, overwrite existing page with same title")
 
 
 class ConfluenceExportResponse(BaseModel):

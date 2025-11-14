@@ -1,34 +1,57 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { useState } from "react"
+import axios from "axios"
+import { EstimationForm } from "@/components/EstimationForm"
+import { ResultsTable } from "@/components/ResultsTable"
+import { useEstimationWebSocket } from "@/hooks/useEstimationWebSocket"
+import { API_BASE_URL } from "@/config"
+import type { EstimationRequest, BatchResponse } from "@/types"
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [sessionId, setSessionId] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const { results, isConnected } = useEstimationWebSocket(sessionId)
+
+  const handleSubmit = async (items: EstimationRequest[]) => {
+    setIsSubmitting(true)
+    try {
+      const response = await axios.post<BatchResponse>(
+        `${API_BASE_URL}/api/estimations/batch`,
+        { items }
+      )
+      setSessionId(response.data.session_id)
+    } catch (error) {
+      console.error("Failed to submit batch:", error)
+      alert("Failed to submit estimation request. Please try again.")
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
+    <div className="min-h-screen bg-background">
+      <div className="container mx-auto py-8 px-4 max-w-6xl">
+        <div className="mb-8">
+          <h1 className="text-4xl font-bold mb-2">Estimation Tool</h1>
+          <p className="text-muted-foreground">
+            Generate BA notes and PERT estimates from Confluence/Jira URLs
+          </p>
+        </div>
+
+        <div className="space-y-6">
+          <EstimationForm onSubmit={handleSubmit} isSubmitting={isSubmitting} />
+          
+          {sessionId && results.length > 0 && (
+            <ResultsTable results={results} sessionId={sessionId} />
+          )}
+
+          {sessionId && !isConnected && results.length === 0 && (
+            <div className="text-center py-4 text-muted-foreground">
+              Connecting to server...
+            </div>
+          )}
+        </div>
       </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
+    </div>
   )
 }
 

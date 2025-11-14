@@ -44,16 +44,20 @@ def generate_ba_notes(
         "You will receive a Confluence page link and its content. "
         "Produce the required Markdown estimation analysis."
     )
+    
+    if ballpark:
+        user_instructions += (
+            f"\n\n**IMPORTANT CONSTRAINT**: The stakeholder has provided a ballpark estimate of {ballpark}. "
+            "Your breakdown and analysis MUST be scoped and structured to align with this target. "
+            "This is a business constraint that must be respected. Adjust scope, assumptions, and complexity analysis accordingly."
+        )
+    
     user_payload = (
         f"Confluence Link: {url}\n\n"
         f"Confluence Title: {title}\n\n"
-        + (f"Initial Ballpark: {ballpark}\n\n" if ballpark else "")
+        + (f"**BALLPARK CONSTRAINT: {ballpark}**\n\n" if ballpark else "")
         + f"Confluence Content (Markdown):\n\n{page_md}"
     )
-    if ballpark:
-        user_instructions += (
-            " The initial ballpark is provided; align your suggested breakdown to approximately fit this band."
-        )
     
     user_messages = [user_instructions, user_payload]
     
@@ -81,16 +85,22 @@ def generate_pert_sheet(
         "Using the PERT template, the BA estimation notes, and the Confluence source link, "
         "produce a complete PERT estimation Markdown."
     )
-    user_payload = (
-        f"Single Source of Truth (Confluence): {url}\n\n"
-        f"PERT Template:\n\n{pert_template_md}\n\n"
-        + (f"Initial Ballpark: {ballpark}\n\n" if ballpark else "")
-        + f"BA Estimation Notes:\n\n{ba_notes_md}"
-    )
+    
     if ballpark:
         user_instructions += (
-            " Respect the initial ballpark in your totals where practical."
+            f"\n\n**CRITICAL CONSTRAINT**: The stakeholder has provided a ballpark estimate of {ballpark}. "
+            "Your PERT estimates (O, M, P values) and final totals MUST target this ballpark as closely as possible. "
+            "This is a business constraint, not a suggestion. Adjust your optimistic, most-likely, and pessimistic "
+            "estimates to ensure the final Expected (E) total aligns with the ballpark. If scope needs to be adjusted "
+            "to meet this constraint, note it in assumptions."
         )
+    
+    user_payload = (
+        f"Single Source of Truth (Confluence): {url}\n\n"
+        + (f"**BALLPARK TARGET: {ballpark}** ← YOUR TOTAL MUST ALIGN WITH THIS\n\n" if ballpark else "")
+        + f"PERT Template:\n\n{pert_template_md}\n\n"
+        + f"BA Estimation Notes:\n\n{ba_notes_md}"
+    )
     
     user_messages = [user_instructions, user_payload]
     

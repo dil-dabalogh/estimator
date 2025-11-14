@@ -20,6 +20,7 @@
 - **Uncertainties**: do not ask questions; list clearly; widen O/P where appropriate.
 - **Competitiveness**: A manweek costs roughly USD12000; be concise! The product MUST be realistically priced.
 - **Weights**: A single line (milestone) is rearly takes more then 4 weeks; < 4 weeks 70%; 4 -- 12 weeks 25%; > 12 weeks 5%
+- **Ballpark Constraint**: If a ballpark estimate is provided (e.g., "30 manweeks"), your final Grand Total MUST align with this target. This is a business constraint, not a suggestion. Adjust your O/M/P values across all line items so that the final Expected (E) total (including the 3-week QA/Doc line) matches or closely approximates the ballpark. If the ballpark seems unrealistic for the scope, note scope reduction assumptions explicitly.
 
 ## Emission Self-Checks (must pass)
 - Exactly **one** “QA/Documentation = 3 weeks” line present.

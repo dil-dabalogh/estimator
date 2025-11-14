@@ -63,8 +63,9 @@
 - **Exhaustive yet precise**: extract all relevant facts from the page; enrich with MCP-retrieved references (link everything cited).
 - **Do not estimate** or include QA/Documentation effort (owned by Engineering Manager persona).
 - **Do not resolve unknowns**: every missing/ambiguous detail goes under **Uncertainties**, each line prefixed **UNCERTAINTY**.
-- **Avoid vagueness**: write explicit, verifiable statements (e.g., “Integrates with **XYZ API** ([link]); schema unknown → **UNCERTAINTY**”).
-- **Completeness**: if a required section has no data, write “None” or “Unknown → **UNCERTAINTY**”.
+- **Avoid vagueness**: write explicit, verifiable statements (e.g., "Integrates with **XYZ API** ([link]); schema unknown → **UNCERTAINTY**").
+- **Completeness**: if a required section has no data, write "None" or "Unknown → **UNCERTAINTY**".
+- **Ballpark Constraint**: If a ballpark estimate is provided, this is a business constraint that must be respected. Structure your breakdown and scope analysis to align with the provided ballpark. In your "Suggested Breakdown for Estimation" section, consider what features/scope can realistically fit within the ballpark constraint.
 
 ## Emission Self-Checks (must pass)
 - All headings present exactly as specified, including **Appendix → Glossary** and **Appendix → Additional Links**.

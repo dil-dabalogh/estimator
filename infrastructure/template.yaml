@@ -69,16 +69,6 @@ Resources:
   EstimationApi:
     Type: AWS::Serverless::HttpApi
     Properties:
-      Auth:
-        Authorizers:
-          IPAuthorizer:
-            AuthorizerType: REQUEST
-            AuthorizerPayloadFormatVersion: "2.0"
-            EnableSimpleResponses: true
-            FunctionArn: !GetAtt IPAuthorizerFunction.Arn
-            Identity:
-              ReauthorizeEvery: 300
-        DefaultAuthorizer: IPAuthorizer
       CorsConfiguration:
         AllowOrigins:
           - "*"
@@ -89,6 +79,18 @@ Resources:
         AllowHeaders:
           - "*"
   
+  # Explicit Authorizer for HTTP API (SAM's simplified syntax doesn't work reliably)
+  IPAuthorizer:
+    Type: AWS::ApiGatewayV2::Authorizer
+    Properties:
+      ApiId: !Ref EstimationApi
+      AuthorizerType: REQUEST
+      AuthorizerUri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${IPAuthorizerFunction.Arn}/invocations"
+      AuthorizerPayloadFormatVersion: "2.0"
+      EnableSimpleResponses: true
+      Name: IPAuthorizer
+      AuthorizerResultTtlInSeconds: 300
+  
   # Grant API Gateway permission to invoke authorizer
   AuthorizerInvokePermission:
     Type: AWS::Lambda::Permission
@@ -96,7 +98,7 @@ Resources:
       FunctionName: !Ref IPAuthorizerFunction
       Action: lambda:InvokeFunction
       Principal: apigateway.amazonaws.com
-      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${EstimationApi}/*"
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${EstimationApi}/*/*"
 
   EstimationFunction:
     Type: AWS::Serverless::Function
@@ -121,6 +123,8 @@ Resources:
             ApiId: !Ref EstimationApi
             Path: /{proxy+}
             Method: ANY
+            Auth:
+              Authorizer: IPAuthorizer
 
 Outputs:
   EstimationApiUrl:

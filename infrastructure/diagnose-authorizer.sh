@@ -30,11 +30,25 @@ echo "✓ Authorizer Lambda found: $AUTH_FUNCTION"
 echo ""
 
 echo "Step 2: Checking authorizer environment variables..."
-aws lambda get-function-configuration \
+ALLOWED_IPS=$(aws lambda get-function-configuration \
   --function-name $AUTH_FUNCTION \
   --region $AWS_REGION \
   --query 'Environment.Variables.ALLOWED_IP_RANGES' \
-  --output text
+  --output text)
+
+echo "ALLOWED_IP_RANGES = '$ALLOWED_IPS'"
+
+if [ -z "$ALLOWED_IPS" ] || [ "$ALLOWED_IPS" = "None" ]; then
+  echo "❌ ERROR: ALLOWED_IP_RANGES environment variable is NOT SET"
+  echo "Showing all environment variables:"
+  aws lambda get-function-configuration \
+    --function-name $AUTH_FUNCTION \
+    --region $AWS_REGION \
+    --query 'Environment.Variables' \
+    --output json
+else
+  echo "✓ ALLOWED_IP_RANGES is configured"
+fi
 
 echo ""
 

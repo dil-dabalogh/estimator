@@ -2,6 +2,7 @@ import { useState } from "react"
 import axios from "axios"
 import { EstimationForm } from "@/components/EstimationForm"
 import { ResultsTable } from "@/components/ResultsTable"
+import { HealthIndicator } from "@/components/HealthIndicator"
 import { useEstimationWebSocket } from "@/hooks/useEstimationWebSocket"
 import { API_BASE_URL } from "@/config"
 import type { EstimationRequest, BatchResponse } from "@/types"
@@ -32,10 +33,17 @@ function App() {
     <div className="min-h-screen bg-background">
       <div className="container mx-auto py-8 px-4 max-w-6xl">
         <div className="mb-8">
-          <h1 className="text-4xl font-bold mb-2">Estimation Tool</h1>
-          <p className="text-muted-foreground">
-            Generate BA notes and PERT estimates from Confluence/Jira URLs
-          </p>
+          <div className="flex items-start justify-between">
+            <div>
+              <h1 className="text-4xl font-bold mb-2">Estimation Tool</h1>
+              <p className="text-muted-foreground">
+                Generate BA notes and PERT estimates from Confluence/Jira URLs
+              </p>
+            </div>
+            <div className="mt-2">
+              <HealthIndicator />
+            </div>
+          </div>
         </div>
 
         <div className="space-y-6">

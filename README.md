@@ -48,13 +48,22 @@ The application will be available at `http://localhost:5173`
 
 ## Documentation
 
-- [User Guide](Userguide.md) - How to use the web application
-- [System Administrator Guide](Sysadminguide.md) - Deployment to AWS Lambda
-- [Environment Variables Guide](ENVIRONMENT_VARIABLES.md) - How to configure environment variables for AWS deployment
-- [Network Security Guide](NETWORK_SECURITY.md) - How to restrict API access to your company network
-- [Development Guide](Developmentguide.md) - Local development and architecture
-- [Confluence Export Implementation](CONFLUENCE_EXPORT_IMPLEMENTATION.md) - Details on the Confluence export feature
-- [Auto-Fetch Title Implementation](AUTO_FETCH_TITLE_IMPLEMENTATION.md) - Details on the auto-fetch title feature
+### User Guides
+- [User Guide](doc/Userguide.md) - How to use the web application
+- [System Administrator Guide](doc/Sysadminguide.md) - Deployment to AWS Lambda and production setup
+- [Development Guide](doc/Developmentguide.md) - Local development and architecture
+
+### Configuration Guides
+- [Environment Variables Guide](doc/ENVIRONMENT_VARIABLES.md) - How to configure environment variables for AWS deployment
+- [AWS Authentication Guide](doc/AWS_AUTHENTICATION.md) - AWS authentication methods and Bedrock configuration
+- [Network Security Guide](doc/NETWORK_SECURITY.md) - How to restrict API access to your company network
+
+### Feature Documentation
+- [Confluence Export Implementation](doc/CONFLUENCE_EXPORT_IMPLEMENTATION.md) - Details on the Confluence export feature
+- [Auto-Fetch Title Implementation](doc/AUTO_FETCH_TITLE_IMPLEMENTATION.md) - Details on the auto-fetch title feature
+
+### Testing & Quality
+- [Test Checklist](doc/TEST_CHECKLIST.md) - Comprehensive testing checklist for all features
 
 ## Technology Stack
 

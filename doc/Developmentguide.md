@@ -210,7 +210,7 @@ Backend is deployed as-is to Lambda. No build step required.
 
 ## Deployment
 
-See [Sysadminguide.md](Sysadminguide.md) for deployment instructions.
+See [System Administrator Guide](./Sysadminguide.md) for deployment instructions.
 
 ## Troubleshooting
 

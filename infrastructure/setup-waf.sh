@@ -82,12 +82,21 @@ WAF_ID=$(echo $WAF_RESPONSE | jq -r '.Summary.Id')
 echo "Web ACL created: $WAF_ID"
 
 # Associate WAF with API Gateway
-echo "Associating WAF with API Gateway..."
-STAGE_ARN="arn:aws:apigateway:${AWS_REGION}::/apis/${API_ID}/stages/\$default"
+# For HTTP API, we need to get the actual stage ARN
+echo "Getting API Gateway stage ARN..."
+STAGE_ARN=$(aws apigatewayv2 get-stage \
+  --api-id $API_ID \
+  --stage-name '$default' \
+  --query 'StageArn' \
+  --output text \
+  --region $AWS_REGION)
 
+echo "Stage ARN: $STAGE_ARN"
+
+echo "Associating WAF with API Gateway..."
 aws wafv2 associate-web-acl \
   --web-acl-arn $WAF_ARN \
-  --resource-arn $STAGE_ARN \
+  --resource-arn "$STAGE_ARN" \
   --region $AWS_REGION
 
 echo ""

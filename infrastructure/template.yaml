@@ -78,27 +78,36 @@ Resources:
           - OPTIONS
         AllowHeaders:
           - "*"
-  
-  # Explicit Authorizer for HTTP API (SAM's simplified syntax doesn't work reliably)
-  IPAuthorizer:
-    Type: AWS::ApiGatewayV2::Authorizer
+      Auth:
+        Authorizers:
+          IPAuthorizer:
+            FunctionArn: !GetAtt IPAuthorizerFunction.Arn
+            FunctionInvokeRole: !GetAtt ApiGatewayAuthorizerRole.Arn
+            AuthorizerPayloadFormatVersion: "2.0"
+            EnableSimpleResponses: true
+            Identity:
+              ReauthorizeEvery: 300
+        DefaultAuthorizer: IPAuthorizer
+
+  # IAM Role for API Gateway to invoke the authorizer
+  ApiGatewayAuthorizerRole:
+    Type: AWS::IAM::Role
     Properties:
-      ApiId: !Ref EstimationApi
-      AuthorizerType: REQUEST
-      AuthorizerUri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${IPAuthorizerFunction.Arn}/invocations"
-      AuthorizerPayloadFormatVersion: "2.0"
-      EnableSimpleResponses: true
-      Name: IPAuthorizer
-      AuthorizerResultTtlInSeconds: 300
-  
-  # Grant API Gateway permission to invoke authorizer
-  AuthorizerInvokePermission:
-    Type: AWS::Lambda::Permission
-    Properties:
-      FunctionName: !Ref IPAuthorizerFunction
-      Action: lambda:InvokeFunction
-      Principal: apigateway.amazonaws.com
-      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${EstimationApi}/*/*"
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: apigateway.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: InvokeAuthorizerFunction
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: !GetAtt IPAuthorizerFunction.Arn
 
   EstimationFunction:
     Type: AWS::Serverless::Function
@@ -123,8 +132,6 @@ Resources:
             ApiId: !Ref EstimationApi
             Path: /{proxy+}
             Method: ANY
-            Auth:
-              Authorizer: IPAuthorizer
 
 Outputs:
   EstimationApiUrl:

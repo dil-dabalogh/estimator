@@ -118,6 +118,11 @@ echo "  ID: $IP_SET_ID"
 echo "  ARN: $IP_SET_ARN"
 echo ""
 
+# Wait for IP Set to propagate (avoid race condition)
+echo "Waiting 5 seconds for IP Set to propagate..."
+sleep 5
+echo ""
+
 # Create Web ACL
 echo "Step 6: Creating Web ACL..."
 WAF_RESPONSE=$(aws wafv2 create-web-acl \

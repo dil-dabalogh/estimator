@@ -180,28 +180,25 @@ echo "  ARN: $WAF_ARN"
 echo ""
 
 # Associate WAF with API Gateway
-# For HTTP API, we need to get the actual stage ARN
-echo "Step 7: Getting API Gateway stage ARN..."
-STAGE_ARN=$(aws apigatewayv2 get-stage \
+# For HTTP API, construct the stage ARN manually (HTTP APIs don't return StageArn in get-stage)
+echo "Step 7: Constructing API Gateway stage ARN..."
+
+# Verify the stage exists first
+STAGE_CHECK=$(aws apigatewayv2 get-stage \
   --api-id $API_ID \
   --stage-name '$default' \
-  --query 'StageArn' \
-  --output text \
   --region $AWS_REGION 2>&1)
 
 if [ $? -ne 0 ]; then
-  echo "ERROR: Failed to get API Gateway stage ARN"
-  echo "$STAGE_ARN"
+  echo "ERROR: Failed to verify API Gateway stage exists"
+  echo "$STAGE_CHECK"
   exit 1
 fi
 
-if [ -z "$STAGE_ARN" ] || [ "$STAGE_ARN" = "None" ] || [ "$STAGE_ARN" = "null" ]; then
-  echo "ERROR: Could not get Stage ARN"
-  echo "Response: $STAGE_ARN"
-  exit 1
-fi
+# Construct the ARN manually for HTTP API
+STAGE_ARN="arn:aws:apigateway:${AWS_REGION}::/apis/${API_ID}/stages/\$default"
 
-echo "✓ Stage ARN retrieved"
+echo "✓ Stage ARN constructed"
 echo "  ARN: $STAGE_ARN"
 echo ""
 

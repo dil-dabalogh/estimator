@@ -4,17 +4,17 @@
 
 By default, the Estimation Tool API is **publicly accessible from anywhere in the world**. This document explains how to restrict access to your company network or VPN.
 
-## Current Implementation: Manual AWS WAF IP Whitelisting
+## Current Implementation: Lambda Authorizer for IP Whitelisting
 
-Due to limitations with HTTP API Gateway and CloudFormation, AWS WAF must be set up **manually after deployment** using the provided scripts. This allows you to specify which IP addresses or IP ranges can access your API.
+**Important**: HTTP API Gateway (API Gateway v2) does NOT support AWS WAF association. Instead, this application uses a **Lambda Authorizer** for IP-based access control.
 
 ## How It Works
 
-1. **Deploy API**: Deploy the API Gateway and Lambda using SAM
-2. **Run WAF Script**: Run the `setup-waf.sh` script to create and attach WAF
-3. **IP Set**: Defines allowed IP addresses/ranges in CIDR notation
-4. **WAF Web ACL**: Blocks all traffic by default, allows only IPs in the IP Set
-5. **API Gateway Association**: WAF is attached to your API Gateway
+1. **Lambda Authorizer Function**: A lightweight Lambda function that checks the request's source IP
+2. **IP Range Configuration**: Allowed IP ranges are set via the `AllowedIPRanges` parameter during deployment
+3. **Automatic Authorization**: API Gateway invokes the authorizer for every request
+4. **Allow/Deny Decision**: The authorizer returns `isAuthorized: true/false` based on IP check
+5. **Caching**: Authorization results are cached for 5 minutes to reduce Lambda invocations
 
 ## Step 1: Find Your Company's Public IP Addresses
 
@@ -36,9 +36,9 @@ Contact your IT/Network team to get:
 - IP Range: `203.0.113.0/24` (allows 203.0.113.0 - 203.0.113.255)
 - Multiple ranges: `203.0.113.0/24,198.51.100.0/24`
 
-## Step 2: Deploy the API (Without IP Restrictions)
+## Step 2: Deploy with IP Restrictions
 
-First, deploy the API normally:
+Deploy the API with your allowed IP ranges:
 
 ```bash
 cd infrastructure
@@ -46,139 +46,121 @@ sam build --use-container
 sam deploy --guided
 ```
 
-Follow the prompts to configure your deployment (LLM provider, Atlassian credentials, etc.).
-
-**At this point, your API is publicly accessible.**
-
-## Step 3: Set Up WAF IP Restrictions
-
-After the API is deployed, run the WAF setup script:
-
-```bash
-cd infrastructure
-./setup-waf.sh "YOUR_IP_RANGES"
-```
+When prompted for `AllowedIPRanges`:
 
 **Examples:**
 
 ```bash
-# Single IP (your current IP)
-./setup-waf.sh "62.216.248.197/32"
+# Single IP (your current VPN IP)
+Parameter AllowedIPRanges [0.0.0.0/0]: 62.216.248.197/32
 
 # Office network range
-./setup-waf.sh "203.0.113.0/24"
+Parameter AllowedIPRanges [0.0.0.0/0]: 203.0.113.0/24
 
 # Multiple ranges (office + VPN)
-./setup-waf.sh "203.0.113.0/24,198.51.100.0/24"
+Parameter AllowedIPRanges [0.0.0.0/0]: 203.0.113.0/24,198.51.100.0/24
+
+# Allow all (no restrictions - default)
+Parameter AllowedIPRanges [0.0.0.0/0]: (press Enter)
 ```
 
-The script will:
-1. Create a WAF IP Set with your allowed IPs
-2. Create a WAF Web ACL that blocks all except allowed IPs
-3. Associate the WAF with your API Gateway
+Or use `--parameter-overrides`:
 
-## Step 4: Verify IP Restrictions
+```bash
+sam deploy --parameter-overrides \
+  AllowedIPRanges="62.216.248.197/32" \
+  LLMProvider=bedrock \
+  ...
+```
+
+## Step 3: Verify IP Restrictions
 
 ### Test from Allowed IP
 ```bash
-# Should succeed (200 OK or 404 if /health doesn't exist)
-curl -I https://YOUR_API_GATEWAY_URL/
+# Get your API URL
+API_URL=$(aws cloudformation describe-stacks \
+  --stack-name estimation-tool-api \
+  --query 'Stacks[0].Outputs[?OutputKey==`EstimationApiUrl`].OutputValue' \
+  --output text)
+
+# Should succeed (200 OK)
+curl $API_URL/health
 ```
 
 ### Test from Different IP (outside allowed range)
 ```bash
-# Should be blocked (403 Forbidden)
-curl -I https://YOUR_API_GATEWAY_URL/
+# Disconnect VPN or test from different network
+# Should be blocked (403 Forbidden with "Unauthorized" message)
+curl $API_URL/health
 ```
 
-## Step 5: Update IP Ranges Later
+## Step 4: Update IP Ranges Later
 
-To add or modify allowed IP ranges, use the update script:
+To update allowed IP ranges after deployment, redeploy with new parameter:
 
 ```bash
 cd infrastructure
-./update-waf-ips.sh "203.0.113.0/24,198.51.100.0/24,192.0.2.0/24"
+sam deploy --parameter-overrides \
+  AllowedIPRanges="NEW_IP_RANGES"
 ```
 
-Or manually via AWS CLI:
-
-```bash
-# Get your WAF IP Set ID
-IP_SET_ID=$(aws wafv2 list-ip-sets --scope REGIONAL \
-  --query "IPSets[?Name=='EstimationToolAllowedIPs'].Id" \
-  --output text)
-
-# Get current lock token
-LOCK_TOKEN=$(aws wafv2 get-ip-set --scope REGIONAL --id $IP_SET_ID \
-  --name EstimationToolAllowedIPs \
-  --query 'LockToken' --output text)
-
-# Update IP addresses
-aws wafv2 update-ip-set \
-  --scope REGIONAL \
-  --id $IP_SET_ID \
-  --name EstimationToolAllowedIPs \
-  --addresses 203.0.113.0/24 198.51.100.0/24 192.0.2.0/24 \
-  --lock-token $LOCK_TOKEN
-```
+**Note**: This redeploys the authorizer Lambda with updated IP ranges. The update takes just a few seconds.
 
 ## Common Scenarios
 
 ### Scenario 1: Office Network Only
 
 ```bash
-./setup-waf.sh "203.0.113.0/24"
+sam deploy --parameter-overrides AllowedIPRanges="203.0.113.0/24"
 ```
 
 ### Scenario 2: Office + VPN
 
 ```bash
-./setup-waf.sh "203.0.113.0/24,198.51.100.0/24"
+sam deploy --parameter-overrides AllowedIPRanges="203.0.113.0/24,198.51.100.0/24"
 ```
 
 ### Scenario 3: Multiple Offices
 
 ```bash
-./setup-waf.sh "203.0.113.0/24,198.51.100.0/24,192.0.2.0/24"
+sam deploy --parameter-overrides AllowedIPRanges="203.0.113.0/24,198.51.100.0/24,192.0.2.0/24"
 ```
 
 ### Scenario 4: Just Your Current IP (Testing)
 
 ```bash
 MY_IP=$(curl -s https://checkip.amazonaws.com)
-./setup-waf.sh "$MY_IP/32"
+sam deploy --parameter-overrides AllowedIPRanges="$MY_IP/32"
 ```
 
-## WAF Monitoring
+## Monitoring Blocked Requests
 
-### View Blocked Requests
+### View Authorizer Logs in CloudWatch
+
+Blocked requests are logged by the Lambda authorizer:
 
 ```bash
-# Get WAF metrics in CloudWatch
-aws cloudwatch get-metric-statistics \
-  --namespace AWS/WAFV2 \
-  --metric-name BlockedRequests \
-  --dimensions Name=Rule,Value=AllowCompanyIPs Name=WebACL,Value=EstimationToolWAF \
-  --start-time $(date -u -d '1 hour ago' +%Y-%m-%dT%H:%M:%S) \
-  --end-time $(date -u +%Y-%m-%dT%H:%M:%S) \
-  --period 3600 \
-  --statistics Sum
+# Get authorizer function name
+AUTH_FUNCTION=$(aws cloudformation describe-stack-resources \
+  --stack-name estimation-tool-api \
+  --query 'StackResources[?LogicalResourceId==`IPAuthorizerFunction`].PhysicalResourceId' \
+  --output text)
+
+# View recent logs
+aws logs tail /aws/lambda/$AUTH_FUNCTION --since 1h
+
+# View blocked requests
+aws logs tail /aws/lambda/$AUTH_FUNCTION --since 1h --filter-pattern "Allowed: False"
 ```
 
-### Check WAF Logs (Optional - requires setup)
+### CloudWatch Logs Insights Query
 
-To enable WAF logging:
-
-```bash
-# Create S3 bucket for WAF logs
-aws s3 mb s3://estimation-tool-waf-logs-$(aws sts get-caller-identity --query Account --output text)
-
-# Enable logging
-aws wafv2 put-logging-configuration \
-  --logging-configuration '{
-    "ResourceArn": "arn:aws:wafv2:us-west-2:ACCOUNT_ID:regional/webacl/EstimationToolWAF/ID",
-    "LogDestinationConfigs": ["arn:aws:s3:::estimation-tool-waf-logs-ACCOUNT_ID"]
-  }'
+```sql
+fields @timestamp, @message
+| filter @message like /Source IP:/
+| parse @message "Source IP: *, Allowed: *" as sourceIp, allowed
+| stats count() by sourceIp, allowed
+| sort count desc
 ```
 
 ## Troubleshooting
@@ -219,28 +201,39 @@ Your VPN might use dynamic IPs. Solutions:
 
 ## Cost Considerations
 
-**AWS WAF Pricing (as of 2024):**
-- Web ACL: ~$5/month
-- Rules: ~$1/month per rule
-- Requests: ~$0.60 per million requests
+**Lambda Authorizer Pricing (as of 2024):**
+- Lambda invocations: First 1M requests/month free, then $0.20 per 1M
+- Lambda duration: Minimal (< 10ms per authorization)
+- Authorization caching: Results cached for 5 minutes (reduces invocations)
 
-**Estimated monthly cost**: ~$6-10 for typical usage
+**Estimated monthly cost**: 
+- Low usage (1,000 requests): $0.00 (within free tier)
+- Moderate usage (100,000 requests): ~$0.02
+- High usage (1M requests): ~$0.20
+
+**Much cheaper than AWS WAF** (~$6-10/month)
 
 ## Alternative Approaches (Not Implemented)
 
-### Option 1: VPC Endpoint (Private API)
+### Option 1: AWS WAF + CloudFront
+- **Why not direct WAF**: HTTP APIs don't support WAF association
+- **CloudFront workaround**: Put CloudFront in front of API Gateway, attach WAF to CloudFront
+- Pros: Full WAF features, DDoS protection
+- Cons: Higher cost (~$6-10/month for WAF + CloudFront), more complex setup
+
+### Option 2: Convert to REST API + WAF
+- Convert from HTTP API (v2) to REST API (v1)
+- REST APIs support direct WAF association
+- Pros: Native WAF support
+- Cons: REST APIs are more expensive, require template changes
+
+### Option 3: VPC Endpoint (Private API)
 - Most secure
 - Only accessible within your VPC
 - Requires VPN or Direct Connect to access
 - More complex setup
 
-### Option 2: CloudFront with Geographic Restrictions
-- Restrict by country
-- Add IP whitelisting
-- Includes CDN benefits
-- Higher cost
-
-### Option 3: API Keys
+### Option 4: API Keys
 - Simple authentication
 - Not IP-based
 - Users need to include API key in requests
@@ -248,51 +241,31 @@ Your VPN might use dynamic IPs. Solutions:
 
 ## Removing IP Restrictions
 
-To remove WAF and make the API public again:
+To make the API publicly accessible again:
 
 ```bash
-AWS_REGION=$(aws configure get region)
-
-# Get WAF and IP Set IDs
-WAF_ID=$(aws wafv2 list-web-acls --scope REGIONAL --region $AWS_REGION \
-  --query "WebACLs[?Name=='EstimationToolWAF'].Id" --output text)
-
-IP_SET_ID=$(aws wafv2 list-ip-sets --scope REGIONAL --region $AWS_REGION \
-  --query "IPSets[?Name=='EstimationToolAllowedIPs'].Id" --output text)
-
-# Disassociate WAF from API Gateway (get API ID from stack first)
-API_ID=$(aws cloudformation describe-stacks --stack-name estimation-tool-api \
-  --query 'Stacks[0].Outputs[?OutputKey==`EstimationApiUrl`].OutputValue' \
-  --output text | cut -d'/' -f3 | cut -d'.' -f1)
-
-aws wafv2 disassociate-web-acl \
-  --resource-arn "arn:aws:apigateway:${AWS_REGION}::/apis/${API_ID}/stages/\$default" \
-  --region $AWS_REGION
-
-# Delete Web ACL (need lock token)
-WAF_LOCK=$(aws wafv2 get-web-acl --scope REGIONAL --id $WAF_ID \
-  --name EstimationToolWAF --region $AWS_REGION \
-  --query 'LockToken' --output text)
-
-aws wafv2 delete-web-acl --scope REGIONAL --id $WAF_ID \
-  --name EstimationToolWAF --lock-token $WAF_LOCK --region $AWS_REGION
-
-# Delete IP Set (need lock token)
-IP_LOCK=$(aws wafv2 get-ip-set --scope REGIONAL --id $IP_SET_ID \
-  --name EstimationToolAllowedIPs --region $AWS_REGION \
-  --query 'LockToken' --output text)
-
-aws wafv2 delete-ip-set --scope REGIONAL --id $IP_SET_ID \
-  --name EstimationToolAllowedIPs --lock-token $IP_LOCK --region $AWS_REGION
-
-echo "WAF removed - API is now publicly accessible"
+cd infrastructure
+sam deploy --parameter-overrides AllowedIPRanges="0.0.0.0/0"
 ```
+
+This redeploys the authorizer with no IP restrictions (allows all IPs).
+
+## Cleanup Orphaned WAF Resources
+
+If you created WAF resources using the old `setup-waf.sh` script, clean them up:
+
+```bash
+cd infrastructure
+./cleanup-waf.sh
+```
+
+This deletes any orphaned WAF Web ACLs and IP Sets from failed script attempts.
 
 ## Security Best Practices
 
 1. ✅ **Use specific IP ranges**, not 0.0.0.0/0
 2. ✅ **Document your IP ranges** and keep them updated
-3. ✅ **Monitor WAF metrics** for blocked requests
+3. ✅ **Monitor authorizer logs** for blocked requests
 4. ✅ **Review access quarterly** and remove unused IPs
 5. ✅ **Use /32 for single IPs**, broader ranges only when needed
 6. ✅ **Test access** from both inside and outside allowed ranges

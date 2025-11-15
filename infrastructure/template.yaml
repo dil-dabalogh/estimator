@@ -13,6 +13,11 @@ Globals:
 # Or via: sam deploy --parameter-overrides LLMProvider=bedrock BedrockRegion=us-west-2 ...
 # Or via: samconfig.toml configuration file
 Parameters:
+  AllowedIPRanges:
+    Type: String
+    Description: "Comma-separated list of IP ranges allowed to access the API (CIDR notation, e.g., 203.0.113.0/24,198.51.100.0/24). Use 0.0.0.0/0 to allow all."
+    Default: "0.0.0.0/0"
+  
   LLMProvider:
     Type: String
     Default: openai
@@ -49,9 +54,31 @@ Parameters:
     NoEcho: true
 
 Resources:
+  # Lambda Authorizer for IP-based access control
+  IPAuthorizerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend
+      Handler: authorizer.handler
+      Runtime: python3.11
+      Timeout: 10
+      Environment:
+        Variables:
+          ALLOWED_IP_RANGES: !Ref AllowedIPRanges
+
   EstimationApi:
     Type: AWS::Serverless::HttpApi
     Properties:
+      Auth:
+        Authorizers:
+          IPAuthorizer:
+            AuthorizerType: REQUEST
+            AuthorizerPayloadFormatVersion: "2.0"
+            EnableSimpleResponses: true
+            FunctionArn: !GetAtt IPAuthorizerFunction.Arn
+            Identity:
+              ReauthorizeEvery: 300
+        DefaultAuthorizer: IPAuthorizer
       CorsConfiguration:
         AllowOrigins:
           - "*"
@@ -61,6 +88,15 @@ Resources:
           - OPTIONS
         AllowHeaders:
           - "*"
+  
+  # Grant API Gateway permission to invoke authorizer
+  AuthorizerInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref IPAuthorizerFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${EstimationApi}/*"
 
   EstimationFunction:
     Type: AWS::Serverless::Function

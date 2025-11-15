@@ -13,6 +13,11 @@ Globals:
 # Or via: sam deploy --parameter-overrides LLMProvider=bedrock BedrockRegion=us-west-2 ...
 # Or via: samconfig.toml configuration file
 Parameters:
+  AllowedIPRanges:
+    Type: CommaDelimitedList
+    Description: "Comma-separated list of IP ranges allowed to access the API (CIDR notation, e.g., 203.0.113.0/24,198.51.100.0/24)"
+    Default: "0.0.0.0/0"
+  
   LLMProvider:
     Type: String
     Default: openai
@@ -49,6 +54,40 @@ Parameters:
     NoEcho: true
 
 Resources:
+  # IP Set for allowed IP ranges
+  AllowedIPSet:
+    Type: AWS::WAFv2::IPSet
+    Properties:
+      Name: EstimationToolAllowedIPs
+      Scope: REGIONAL
+      IPAddressVersion: IPV4
+      Addresses: !Ref AllowedIPRanges
+
+  # WAF Web ACL to restrict access by IP
+  ApiWAF:
+    Type: AWS::WAFv2::WebACL
+    Properties:
+      Name: EstimationToolWAF
+      Scope: REGIONAL
+      DefaultAction:
+        Block: {}
+      Rules:
+        - Name: AllowCompanyIPs
+          Priority: 0
+          Statement:
+            IPSetReferenceStatement:
+              Arn: !GetAtt AllowedIPSet.Arn
+          Action:
+            Allow: {}
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: AllowCompanyIPs
+      VisibilityConfig:
+        SampledRequestsEnabled: true
+        CloudWatchMetricsEnabled: true
+        MetricName: EstimationToolWAF
+
   EstimationApi:
     Type: AWS::Serverless::HttpApi
     Properties:
@@ -61,6 +100,13 @@ Resources:
           - OPTIONS
         AllowHeaders:
           - "*"
+  
+  # Associate WAF with API Gateway
+  ApiWAFAssociation:
+    Type: AWS::WAFv2::WebACLAssociation
+    Properties:
+      ResourceArn: !Sub "arn:aws:apigateway:${AWS::Region}::/apis/${EstimationApi}/stages/$default"
+      WebACLArn: !GetAtt ApiWAF.Arn
 
   EstimationFunction:
     Type: AWS::Serverless::Function

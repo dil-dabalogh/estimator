@@ -21,9 +21,14 @@ echo ""
 
 # Get AWS region
 echo "Step 1: Getting AWS configuration..."
-AWS_REGION=$(aws configure get region)
+# Try multiple methods to get the region
+AWS_REGION=${AWS_REGION:-$(aws configure get region 2>/dev/null)}
+AWS_REGION=${AWS_REGION:-$(aws configure get region --profile default 2>/dev/null)}
+AWS_REGION=${AWS_REGION:-"us-west-2"}  # Default fallback
+
 if [ -z "$AWS_REGION" ]; then
   echo "ERROR: Could not determine AWS region"
+  echo "Please set AWS_REGION environment variable or configure aws cli"
   exit 1
 fi
 echo "Region: $AWS_REGION"

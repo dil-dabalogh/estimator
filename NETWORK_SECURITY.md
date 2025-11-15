@@ -4,15 +4,17 @@
 
 By default, the Estimation Tool API is **publicly accessible from anywhere in the world**. This document explains how to restrict access to your company network or VPN.
 
-## Current Implementation: AWS WAF IP Whitelisting
+## Current Implementation: Manual AWS WAF IP Whitelisting
 
-The CloudFormation template includes AWS WAF (Web Application Firewall) with IP-based access control. This allows you to specify which IP addresses or IP ranges can access your API.
+Due to limitations with HTTP API Gateway and CloudFormation, AWS WAF must be set up **manually after deployment** using the provided scripts. This allows you to specify which IP addresses or IP ranges can access your API.
 
 ## How It Works
 
-1. **IP Set**: Defines allowed IP addresses/ranges in CIDR notation
-2. **WAF Web ACL**: Blocks all traffic by default, allows only IPs in the IP Set
-3. **API Gateway Association**: WAF is attached to your API Gateway
+1. **Deploy API**: Deploy the API Gateway and Lambda using SAM
+2. **Run WAF Script**: Run the `setup-waf.sh` script to create and attach WAF
+3. **IP Set**: Defines allowed IP addresses/ranges in CIDR notation
+4. **WAF Web ACL**: Blocks all traffic by default, allows only IPs in the IP Set
+5. **API Gateway Association**: WAF is attached to your API Gateway
 
 ## Step 1: Find Your Company's Public IP Addresses
 
@@ -34,9 +36,9 @@ Contact your IT/Network team to get:
 - IP Range: `203.0.113.0/24` (allows 203.0.113.0 - 203.0.113.255)
 - Multiple ranges: `203.0.113.0/24,198.51.100.0/24`
 
-## Step 2: Deploy with IP Restrictions
+## Step 2: Deploy the API (Without IP Restrictions)
 
-### During Initial Deployment
+First, deploy the API normally:
 
 ```bash
 cd infrastructure
@@ -44,38 +46,61 @@ sam build --use-container
 sam deploy --guided
 ```
 
-When prompted:
-```
-Parameter AllowedIPRanges [0.0.0.0/0]: 203.0.113.0/24,198.51.100.0/24
-```
+Follow the prompts to configure your deployment (LLM provider, Atlassian credentials, etc.).
 
-**Important**: `0.0.0.0/0` means "allow from anywhere" (no restrictions). Replace with your actual IP ranges.
+**At this point, your API is publicly accessible.**
 
-### Update Existing Deployment
+## Step 3: Set Up WAF IP Restrictions
+
+After the API is deployed, run the WAF setup script:
 
 ```bash
 cd infrastructure
-sam deploy --parameter-overrides \
-  AllowedIPRanges="203.0.113.0/24,198.51.100.0/24"
+./setup-waf.sh "YOUR_IP_RANGES"
 ```
 
-## Step 3: Verify IP Restrictions
+**Examples:**
+
+```bash
+# Single IP (your current IP)
+./setup-waf.sh "62.216.248.197/32"
+
+# Office network range
+./setup-waf.sh "203.0.113.0/24"
+
+# Multiple ranges (office + VPN)
+./setup-waf.sh "203.0.113.0/24,198.51.100.0/24"
+```
+
+The script will:
+1. Create a WAF IP Set with your allowed IPs
+2. Create a WAF Web ACL that blocks all except allowed IPs
+3. Associate the WAF with your API Gateway
+
+## Step 4: Verify IP Restrictions
 
 ### Test from Allowed IP
 ```bash
-# Should succeed (200 OK)
-curl -I https://YOUR_API_GATEWAY_URL/health
+# Should succeed (200 OK or 404 if /health doesn't exist)
+curl -I https://YOUR_API_GATEWAY_URL/
 ```
 
 ### Test from Different IP (outside allowed range)
 ```bash
 # Should be blocked (403 Forbidden)
-curl -I https://YOUR_API_GATEWAY_URL/health
+curl -I https://YOUR_API_GATEWAY_URL/
 ```
 
-## Step 4: Update IP Ranges Later
+## Step 5: Update IP Ranges Later
 
-To add or modify allowed IP ranges without full redeployment:
+To add or modify allowed IP ranges, use the update script:
+
+```bash
+cd infrastructure
+./update-waf-ips.sh "203.0.113.0/24,198.51.100.0/24,192.0.2.0/24"
+```
+
+Or manually via AWS CLI:
 
 ```bash
 # Get your WAF IP Set ID
@@ -102,28 +127,27 @@ aws wafv2 update-ip-set \
 ### Scenario 1: Office Network Only
 
 ```bash
-AllowedIPRanges="203.0.113.0/24"
+./setup-waf.sh "203.0.113.0/24"
 ```
 
 ### Scenario 2: Office + VPN
 
 ```bash
-AllowedIPRanges="203.0.113.0/24,198.51.100.0/24"
+./setup-waf.sh "203.0.113.0/24,198.51.100.0/24"
 ```
 
 ### Scenario 3: Multiple Offices
 
 ```bash
-AllowedIPRanges="203.0.113.0/24,198.51.100.0/24,192.0.2.0/24"
+./setup-waf.sh "203.0.113.0/24,198.51.100.0/24,192.0.2.0/24"
 ```
 
-### Scenario 4: Temporarily Allow All (Testing)
+### Scenario 4: Just Your Current IP (Testing)
 
 ```bash
-AllowedIPRanges="0.0.0.0/0"
+MY_IP=$(curl -s https://checkip.amazonaws.com)
+./setup-waf.sh "$MY_IP/32"
 ```
-
-**Warning**: This removes all restrictions. Use only for testing!
 
 ## WAF Monitoring
 
@@ -224,14 +248,45 @@ Your VPN might use dynamic IPs. Solutions:
 
 ## Removing IP Restrictions
 
-To make the API public again:
+To remove WAF and make the API public again:
 
 ```bash
-cd infrastructure
-sam deploy --parameter-overrides AllowedIPRanges="0.0.0.0/0"
-```
+AWS_REGION=$(aws configure get region)
 
-Or remove the WAF resources from `template.yaml` entirely.
+# Get WAF and IP Set IDs
+WAF_ID=$(aws wafv2 list-web-acls --scope REGIONAL --region $AWS_REGION \
+  --query "WebACLs[?Name=='EstimationToolWAF'].Id" --output text)
+
+IP_SET_ID=$(aws wafv2 list-ip-sets --scope REGIONAL --region $AWS_REGION \
+  --query "IPSets[?Name=='EstimationToolAllowedIPs'].Id" --output text)
+
+# Disassociate WAF from API Gateway (get API ID from stack first)
+API_ID=$(aws cloudformation describe-stacks --stack-name estimation-tool-api \
+  --query 'Stacks[0].Outputs[?OutputKey==`EstimationApiUrl`].OutputValue' \
+  --output text | cut -d'/' -f3 | cut -d'.' -f1)
+
+aws wafv2 disassociate-web-acl \
+  --resource-arn "arn:aws:apigateway:${AWS_REGION}::/apis/${API_ID}/stages/\$default" \
+  --region $AWS_REGION
+
+# Delete Web ACL (need lock token)
+WAF_LOCK=$(aws wafv2 get-web-acl --scope REGIONAL --id $WAF_ID \
+  --name EstimationToolWAF --region $AWS_REGION \
+  --query 'LockToken' --output text)
+
+aws wafv2 delete-web-acl --scope REGIONAL --id $WAF_ID \
+  --name EstimationToolWAF --lock-token $WAF_LOCK --region $AWS_REGION
+
+# Delete IP Set (need lock token)
+IP_LOCK=$(aws wafv2 get-ip-set --scope REGIONAL --id $IP_SET_ID \
+  --name EstimationToolAllowedIPs --region $AWS_REGION \
+  --query 'LockToken' --output text)
+
+aws wafv2 delete-ip-set --scope REGIONAL --id $IP_SET_ID \
+  --name EstimationToolAllowedIPs --lock-token $IP_LOCK --region $AWS_REGION
+
+echo "WAF removed - API is now publicly accessible"
+```
 
 ## Security Best Practices
 

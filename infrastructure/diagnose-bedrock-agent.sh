@@ -91,13 +91,18 @@ echo "Step 2: Check Agent Execution Role"
 echo "========================================="
 echo ""
 
-ROLE_NAME=$(echo "$AGENT_ROLE_ARN" | rev | cut -d'/' -f1 | rev)
+# Extract full role name including path (e.g., service-role/RoleName)
+ROLE_NAME_WITH_PATH=$(echo "$AGENT_ROLE_ARN" | sed 's|arn:aws:iam::[0-9]*:role/||')
+ROLE_NAME=$(echo "$ROLE_NAME_WITH_PATH" | rev | cut -d'/' -f1 | rev)
+
+echo "Role ARN: $AGENT_ROLE_ARN"
+echo "Role Name (with path): $ROLE_NAME_WITH_PATH"
 echo "Role Name: $ROLE_NAME"
 echo ""
 
 echo "Getting role trust policy..."
 TRUST_POLICY=$(aws iam get-role \
-    --role-name "$ROLE_NAME" \
+    --role-name "$ROLE_NAME_WITH_PATH" \
     --query 'Role.AssumeRolePolicyDocument' \
     --output json 2>/dev/null || echo "{}")
 
@@ -106,12 +111,12 @@ echo ""
 
 echo "Checking role policies..."
 INLINE_POLICIES=$(aws iam list-role-policies \
-    --role-name "$ROLE_NAME" \
+    --role-name "$ROLE_NAME_WITH_PATH" \
     --query 'PolicyNames' \
     --output text 2>/dev/null || echo "")
 
 ATTACHED_POLICIES=$(aws iam list-attached-role-policies \
-    --role-name "$ROLE_NAME" \
+    --role-name "$ROLE_NAME_WITH_PATH" \
     --query 'AttachedPolicies[].PolicyName' \
     --output text 2>/dev/null || echo "")
 
@@ -128,7 +133,7 @@ if [ -n "$INLINE_POLICIES" ]; then
     for policy_name in $INLINE_POLICIES; do
         echo "  Checking inline policy: $policy_name"
         POLICY_DOC=$(aws iam get-role-policy \
-            --role-name "$ROLE_NAME" \
+            --role-name "$ROLE_NAME_WITH_PATH" \
             --policy-name "$policy_name" \
             --query 'PolicyDocument' \
             --output json)
@@ -167,7 +172,7 @@ EOF
 )
     
     aws iam put-role-policy \
-        --role-name "$ROLE_NAME" \
+        --role-name "$ROLE_NAME_WITH_PATH" \
         --policy-name "BedrockModelInvokePolicy" \
         --policy-document "$POLICY_DOCUMENT"
     

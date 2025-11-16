@@ -6,7 +6,7 @@ echo "Building and deploying Estimation Tool API..."
 
 cd "$(dirname "$0")/.."
 
-sam build --template infrastructure/template.yaml
+sam build --template infrastructure/template.yaml --use-container
 
 sam deploy \
   --guided \

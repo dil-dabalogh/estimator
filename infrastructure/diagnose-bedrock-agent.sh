@@ -100,11 +100,117 @@ echo "Role Name (with path): $ROLE_NAME_WITH_PATH"
 echo "Role Name: $ROLE_NAME"
 echo ""
 
-echo "Getting role trust policy..."
-TRUST_POLICY=$(aws iam get-role \
-    --role-name "$ROLE_NAME" \
-    --query 'Role.AssumeRolePolicyDocument' \
-    --output json 2>/dev/null || echo "{}")
+echo "Getting role details..."
+
+# Try to get the role - first without path, then search for it
+ROLE_INFO=$(aws iam get-role --role-name "$ROLE_NAME" 2>/dev/null || echo "NOT_FOUND")
+
+if [ "$ROLE_INFO" = "NOT_FOUND" ]; then
+    echo "Role not found with simple name, searching all roles..."
+    
+    # List all roles and find the one matching the ARN
+    ALL_ROLES=$(aws iam list-roles --output json)
+    ROLE_INFO=$(echo "$ALL_ROLES" | jq -r --arg arn "$AGENT_ROLE_ARN" '.Roles[] | select(.Arn == $arn)')
+    
+    if [ -z "$ROLE_INFO" ] || [ "$ROLE_INFO" = "null" ]; then
+        echo "❌ Role does not exist in IAM!"
+        echo ""
+        echo "Creating the execution role for the agent..."
+        
+        # Create trust policy for Bedrock
+        TRUST_POLICY_DOC=$(cat <<'EOFT'
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "bedrock.amazonaws.com"
+      },
+      "Action": "sts:AssumeRole",
+      "Condition": {
+        "StringEquals": {
+          "aws:SourceAccount": "ACCOUNT_ID_PLACEHOLDER"
+        },
+        "ArnLike": {
+          "aws:SourceArn": "arn:aws:bedrock:REGION_PLACEHOLDER:ACCOUNT_ID_PLACEHOLDER:agent/*"
+        }
+      }
+    }
+  ]
+}
+EOFT
+)
+        
+        # Replace placeholders
+        TRUST_POLICY_DOC=$(echo "$TRUST_POLICY_DOC" | sed "s/ACCOUNT_ID_PLACEHOLDER/$ACCOUNT_ID/g" | sed "s/REGION_PLACEHOLDER/$AWS_REGION/g")
+        
+        # Create the role
+        aws iam create-role \
+            --role-name "$ROLE_NAME" \
+            --path "/service-role/" \
+            --assume-role-policy-document "$TRUST_POLICY_DOC" \
+            --description "Execution role for Bedrock Agent - Estimation Tool"
+        
+        echo "✅ Role created successfully"
+        echo ""
+        
+        # Add Bedrock model invocation permission immediately
+        BEDROCK_POLICY=$(cat <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "bedrock:InvokeModel",
+        "bedrock:InvokeModelWithResponseStream"
+      ],
+      "Resource": [
+        "arn:aws:bedrock:${AWS_REGION}::foundation-model/${FOUNDATION_MODEL}",
+        "arn:aws:bedrock:${AWS_REGION}::foundation-model/*"
+      ]
+    }
+  ]
+}
+EOF
+)
+        
+        aws iam put-role-policy \
+            --role-name "$ROLE_NAME" \
+            --policy-name "BedrockModelInvokePolicy" \
+            --policy-document "$BEDROCK_POLICY"
+        
+        echo "✅ Added Bedrock permissions to role"
+        echo ""
+        
+        # Update agent to use this role
+        echo "Updating agent with the new role..."
+        aws bedrock-agent update-agent \
+            --agent-id "$AGENT_ID" \
+            --agent-name "$AGENT_NAME" \
+            --foundation-model "$FOUNDATION_MODEL" \
+            --instruction "$(cat $SCRIPT_DIR/../personas/combined_agent_instruction.txt)" \
+            --agent-resource-role-arn "$AGENT_ROLE_ARN" \
+            --region "$AWS_REGION" \
+            --output json > /dev/null
+        
+        echo "✅ Agent updated with new role"
+        
+        # Set flag to skip permission check since we just added it
+        HAS_BEDROCK_PERMISSION=true
+        
+        # Get the role info now
+        ROLE_INFO=$(aws iam get-role --role-name "$ROLE_NAME" --output json)
+        TRUST_POLICY=$(echo "$ROLE_INFO" | jq -r '.Role.AssumeRolePolicyDocument')
+    else
+        echo "✅ Found role in IAM"
+        TRUST_POLICY=$(echo "$ROLE_INFO" | jq -r '.AssumeRolePolicyDocument')
+    fi
+else
+    echo "✅ Found role"
+    TRUST_POLICY=$(echo "$ROLE_INFO" | jq -r '.Role.AssumeRolePolicyDocument')
+fi
 
 echo "$TRUST_POLICY" | jq '.'
 echo ""

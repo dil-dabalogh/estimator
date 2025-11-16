@@ -43,16 +43,6 @@ Parameters:
     Type: String
     Default: anthropic.claude-3-sonnet-20240229-v1:0
   
-  BedrockAgentId:
-    Type: String
-    Default: ""
-    Description: "Bedrock Agent ID (optional - if set, will use agent instead of direct model)"
-  
-  BedrockAgentAliasId:
-    Type: String
-    Default: ""
-    Description: "Bedrock Agent Alias ID (required if BedrockAgentId is set)"
-  
   AtlassianURL:
     Type: String
   

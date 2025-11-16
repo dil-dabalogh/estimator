@@ -78,36 +78,6 @@ Resources:
           - OPTIONS
         AllowHeaders:
           - "*"
-      Auth:
-        Authorizers:
-          IPAuthorizer:
-            FunctionArn: !GetAtt IPAuthorizerFunction.Arn
-            FunctionInvokeRole: !GetAtt ApiGatewayAuthorizerRole.Arn
-            AuthorizerPayloadFormatVersion: "2.0"
-            EnableSimpleResponses: true
-            Identity:
-              ReauthorizeEvery: 300
-        DefaultAuthorizer: IPAuthorizer
-
-  # IAM Role for API Gateway to invoke the authorizer
-  ApiGatewayAuthorizerRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: apigateway.amazonaws.com
-            Action: sts:AssumeRole
-      Policies:
-        - PolicyName: InvokeAuthorizerFunction
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action: lambda:InvokeFunction
-                Resource: !GetAtt IPAuthorizerFunction.Arn
 
   EstimationFunction:
     Type: AWS::Serverless::Function
@@ -125,13 +95,58 @@ Resources:
           ATLASSIAN_URL: !Ref AtlassianURL            # From Parameter: AtlassianURL
           ATLASSIAN_USER_EMAIL: !Ref AtlassianEmail   # From Parameter: AtlassianEmail
           ATLASSIAN_API_TOKEN: !Ref AtlassianToken    # From Parameter: AtlassianToken
-      Events:
-        ApiEvent:
-          Type: HttpApi
-          Properties:
-            ApiId: !Ref EstimationApi
-            Path: /{proxy+}
-            Method: ANY
+  
+  # Lambda permission for API Gateway to invoke the function
+  EstimationFunctionPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref EstimationFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${EstimationApi}/*/*"
+  
+  # Lambda permission for API Gateway to invoke the authorizer
+  IPAuthorizerPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref IPAuthorizerFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${EstimationApi}/authorizers/*"
+  
+  # Integration between API Gateway and Lambda
+  EstimationIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref EstimationApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${EstimationFunction.Arn}/invocations"
+      PayloadFormatVersion: "2.0"
+  
+  # Create the authorizer
+  IPAuthorizer:
+    Type: AWS::ApiGatewayV2::Authorizer
+    Properties:
+      ApiId: !Ref EstimationApi
+      AuthorizerType: REQUEST
+      AuthorizerUri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${IPAuthorizerFunction.Arn}/invocations"
+      AuthorizerPayloadFormatVersion: "2.0"
+      EnableSimpleResponses: true
+      Name: IPAuthorizer
+      AuthorizerResultTtlInSeconds: 300
+  
+  # Create route with authorizer attached
+  EstimationRoute:
+    Type: AWS::ApiGatewayV2::Route
+    DependsOn:
+      - IPAuthorizer
+      - EstimationIntegration
+    Properties:
+      ApiId: !Ref EstimationApi
+      RouteKey: "ANY /{proxy+}"
+      AuthorizationType: CUSTOM
+      AuthorizerId: !Ref IPAuthorizer
+      Target: !Sub "integrations/${EstimationIntegration}"
 
 Outputs:
   EstimationApiUrl:

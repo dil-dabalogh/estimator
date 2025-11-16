@@ -43,6 +43,16 @@ Parameters:
     Type: String
     Default: anthropic.claude-3-sonnet-20240229-v1:0
   
+  BedrockAgentId:
+    Type: String
+    Default: ""
+    Description: "Bedrock Agent ID (optional - if set, will use agent instead of direct model)"
+  
+  BedrockAgentAliasId:
+    Type: String
+    Default: ""
+    Description: "Bedrock Agent Alias ID (required if BedrockAgentId is set)"
+  
   AtlassianURL:
     Type: String
   
@@ -84,6 +94,21 @@ Resources:
     Properties:
       CodeUri: ../backend
       Handler: lambda_handler.handler
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+                - bedrock:InvokeModelWithResponseStream
+              Resource: !Sub "arn:aws:bedrock:${AWS::Region}::foundation-model/*"
+            - Effect: Allow
+              Action:
+                - bedrock:InvokeAgent
+              Resource: !Sub "arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:agent/*"
+            - Effect: Allow
+              Action:
+                - bedrock:InvokeAgent
+              Resource: !Sub "arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:agent-alias/*/*"
       # Parameters (set during deployment) are mapped to Lambda environment variables here
       Environment:
         Variables:
@@ -92,6 +117,8 @@ Resources:
           OPENAI_MODEL: !Ref OpenAIModel              # From Parameter: OpenAIModel
           BEDROCK_REGION: !Ref BedrockRegion          # From Parameter: BedrockRegion (optional - falls back to Lambda's AWS_REGION)
           BEDROCK_MODEL: !Ref BedrockModel            # From Parameter: BedrockModel
+          BEDROCK_AGENT_ID: !Ref BedrockAgentId       # From Parameter: BedrockAgentId (optional)
+          BEDROCK_AGENT_ALIAS_ID: !Ref BedrockAgentAliasId  # From Parameter: BedrockAgentAliasId (optional)
           ATLASSIAN_URL: !Ref AtlassianURL            # From Parameter: AtlassianURL
           ATLASSIAN_USER_EMAIL: !Ref AtlassianEmail   # From Parameter: AtlassianEmail
           ATLASSIAN_API_TOKEN: !Ref AtlassianToken    # From Parameter: AtlassianToken

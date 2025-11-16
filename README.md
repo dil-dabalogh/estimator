@@ -57,6 +57,7 @@ The application will be available at `http://localhost:5173`
 - [Environment Variables Guide](doc/ENVIRONMENT_VARIABLES.md) - How to configure environment variables for AWS deployment
 - [AWS Authentication Guide](doc/AWS_AUTHENTICATION.md) - AWS authentication methods and Bedrock configuration
 - [Network Security Guide](doc/NETWORK_SECURITY.md) - How to restrict API access to your company network
+- [Bedrock Agent Setup Guide](doc/BEDROCK_AGENT_SETUP.md) - AWS Bedrock Agent with MCP integration
 
 ### Feature Documentation
 - [Confluence Export Implementation](doc/CONFLUENCE_EXPORT_IMPLEMENTATION.md) - Details on the Confluence export feature
@@ -83,6 +84,7 @@ The application will be available at `http://localhost:5173`
 **LLM Providers:**
 - OpenAI (GPT-4, GPT-5)
 - AWS Bedrock (Anthropic Claude)
+- AWS Bedrock Agents with MCP integration (Atlassian, Glean)
 
 ## Project Structure
 

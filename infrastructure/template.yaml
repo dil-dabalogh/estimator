@@ -133,7 +133,7 @@ Resources:
       AuthorizerPayloadFormatVersion: "2.0"
       EnableSimpleResponses: true
       Name: IPAuthorizer
-      AuthorizerResultTtlInSeconds: 300
+      AuthorizerResultTtlInSeconds: 0  # Disable caching - IP-based auth can't be cached without identity source
   
   # Create route with authorizer attached
   EstimationRoute:

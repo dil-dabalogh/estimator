@@ -115,15 +115,28 @@ if completion:
         if "chunk" in event:
             chunk = event["chunk"]
             
-            # Handle bytes (base64 encoded)
+            # Handle bytes (raw bytes, not base64)
             if "bytes" in chunk:
                 try:
-                    decoded_bytes = base64.b64decode(chunk["bytes"])
-                    text = decoded_bytes.decode("utf-8")
+                    # The bytes are already decoded by boto3, just need to convert to string
+                    raw_bytes = chunk["bytes"]
+                    
+                    # If it's already a string, use it directly
+                    if isinstance(raw_bytes, str):
+                        text = raw_bytes
+                    # If it's bytes, decode to UTF-8
+                    elif isinstance(raw_bytes, bytes):
+                        text = raw_bytes.decode("utf-8", errors="replace")
+                    else:
+                        # Fallback: convert to string
+                        text = str(raw_bytes)
+                    
                     parts.append(text)
                     print(text, end="", flush=True)
                 except Exception as e:
                     print(f"\n[Error decoding chunk: {e}]", file=sys.stderr)
+                    # Debug: show the raw chunk
+                    print(f"[Debug: chunk type={type(chunk.get('bytes'))}, chunk={chunk}]", file=sys.stderr)
             
             # Handle text directly
             elif "text" in chunk:

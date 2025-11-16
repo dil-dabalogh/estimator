@@ -102,7 +102,7 @@ echo ""
 
 echo "Getting role trust policy..."
 TRUST_POLICY=$(aws iam get-role \
-    --role-name "$ROLE_NAME_WITH_PATH" \
+    --role-name "$ROLE_NAME" \
     --query 'Role.AssumeRolePolicyDocument' \
     --output json 2>/dev/null || echo "{}")
 
@@ -111,12 +111,12 @@ echo ""
 
 echo "Checking role policies..."
 INLINE_POLICIES=$(aws iam list-role-policies \
-    --role-name "$ROLE_NAME_WITH_PATH" \
+    --role-name "$ROLE_NAME" \
     --query 'PolicyNames' \
     --output text 2>/dev/null || echo "")
 
 ATTACHED_POLICIES=$(aws iam list-attached-role-policies \
-    --role-name "$ROLE_NAME_WITH_PATH" \
+    --role-name "$ROLE_NAME" \
     --query 'AttachedPolicies[].PolicyName' \
     --output text 2>/dev/null || echo "")
 
@@ -133,7 +133,7 @@ if [ -n "$INLINE_POLICIES" ]; then
     for policy_name in $INLINE_POLICIES; do
         echo "  Checking inline policy: $policy_name"
         POLICY_DOC=$(aws iam get-role-policy \
-            --role-name "$ROLE_NAME_WITH_PATH" \
+            --role-name "$ROLE_NAME" \
             --policy-name "$policy_name" \
             --query 'PolicyDocument' \
             --output json)
@@ -172,7 +172,7 @@ EOF
 )
     
     aws iam put-role-policy \
-        --role-name "$ROLE_NAME_WITH_PATH" \
+        --role-name "$ROLE_NAME" \
         --policy-name "BedrockModelInvokePolicy" \
         --policy-document "$POLICY_DOCUMENT"
     

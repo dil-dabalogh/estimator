@@ -60,6 +60,7 @@ elif [ "$DEPLOYMENT_MODE" = "config" ]; then
   sam deploy \
     --config-env dev \
     --template-file .aws-sam/build/template.yaml \
+    --stack-name estimation-tool-api \
     --capabilities CAPABILITY_IAM \
     --force-upload \
     --no-confirm-changeset

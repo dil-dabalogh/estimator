@@ -250,17 +250,6 @@ sam deploy --parameter-overrides AllowedIPRanges="0.0.0.0/0"
 
 This redeploys the authorizer with no IP restrictions (allows all IPs).
 
-## Cleanup Orphaned WAF Resources
-
-If you created WAF resources using the old `setup-waf.sh` script, clean them up:
-
-```bash
-cd infrastructure
-./cleanup-waf.sh
-```
-
-This deletes any orphaned WAF Web ACLs and IP Sets from failed script attempts.
-
 ## Security Best Practices
 
 1. ✅ **Use specific IP ranges**, not 0.0.0.0/0

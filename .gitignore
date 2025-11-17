@@ -63,4 +63,9 @@ frontend/.vite/
 # Configuration files with secrets
 orchestrator.conf
 
+# AWS SAM build artifacts
+.aws-sam/
+*/.aws-sam/
 
+# Infrastructure generated files
+infrastructure/bedrock-agent-config.sh

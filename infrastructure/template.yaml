@@ -20,7 +20,7 @@ Parameters:
   
   LLMProvider:
     Type: String
-    Default: openai
+    Default: bedrock
     AllowedValues:
       - openai
       - bedrock
@@ -41,7 +41,7 @@ Parameters:
   
   BedrockModel:
     Type: String
-    Default: anthropic.claude-3-sonnet-20240229-v1:0
+    Default: anthropic.claude-sonnet-4-20250514-v1:0
   
   BedrockAgentId:
     Type: String

@@ -75,6 +75,7 @@ Resources:
       Environment:
         Variables:
           ALLOWED_IP_RANGES: !Ref AllowedIPRanges
+          DEPLOYMENT_VERSION: "1.1"  # Increment to force updates
 
   EstimationApi:
     Type: AWS::Serverless::HttpApi

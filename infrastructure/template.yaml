@@ -15,8 +15,8 @@ Globals:
 Parameters:
   AllowedIPRanges:
     Type: String
-    Description: "Comma-separated list of IP ranges allowed to access the API (CIDR notation, e.g., 203.0.113.0/24,198.51.100.0/24). Use 0.0.0.0/0 to allow all."
-    Default: "0.0.0.0/0"
+    Description: "Comma-separated list of IP ranges allowed to access the API (CIDR notation, e.g., 203.0.113.0/24,198.51.100.0/24). Use 127.0.0.1/32 to deny all. Use manage-ip-whitelist.sh script to manage IPs."
+    Default: "127.0.0.1/32"
   
   LLMProvider:
     Type: String
@@ -144,7 +144,7 @@ Resources:
       Principal: apigateway.amazonaws.com
       SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${EstimationApi}/*/*"
   
-  # Lambda permission for API Gateway to invoke the authorizer
+  # Lambda permission for API Gateway to invoke the authorizer (HTTP API)
   IPAuthorizerPermission:
     Type: AWS::Lambda::Permission
     Properties:
@@ -152,6 +152,15 @@ Resources:
       Action: lambda:InvokeFunction
       Principal: apigateway.amazonaws.com
       SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${EstimationApi}/authorizers/*"
+  
+  # Lambda permission for WebSocket API to invoke the authorizer
+  WebSocketAuthorizerPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref IPAuthorizerFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi}/authorizers/*"
   
   # Integration between API Gateway and Lambda
   EstimationIntegration:
@@ -221,6 +230,17 @@ Resources:
       Name: !Sub "${AWS::StackName}-websocket"
       ProtocolType: WEBSOCKET
       RouteSelectionExpression: "$request.body.action"
+  
+  # WebSocket Authorizer for IP filtering
+  WebSocketAuthorizer:
+    Type: AWS::ApiGatewayV2::Authorizer
+    Properties:
+      ApiId: !Ref WebSocketApi
+      AuthorizerType: REQUEST
+      AuthorizerUri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${IPAuthorizerFunction.Arn}/invocations"
+      Name: WebSocketIPAuthorizer
+      IdentitySource:
+        - route.request.header.X-Forwarded-For
 
   # WebSocket Connect Handler
   WebSocketConnectFunction:
@@ -252,9 +272,13 @@ Resources:
 
   WebSocketConnectRoute:
     Type: AWS::ApiGatewayV2::Route
+    DependsOn:
+      - WebSocketAuthorizer
     Properties:
       ApiId: !Ref WebSocketApi
       RouteKey: $connect
+      AuthorizationType: CUSTOM
+      AuthorizerId: !Ref WebSocketAuthorizer
       Target: !Sub "integrations/${WebSocketConnectIntegration}"
 
   # WebSocket Disconnect Handler

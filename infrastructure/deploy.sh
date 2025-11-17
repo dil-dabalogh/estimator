@@ -67,7 +67,6 @@ elif [ "$DEPLOYMENT_MODE" = "config" ]; then
     --no-confirm-changeset \
     --region us-west-2 \
     --parameter-overrides \
-      AllowedIPRanges="0.0.0.0/0" \
       LLMProvider="bedrock" \
       OpenAIModel="gpt-5" \
       BedrockRegion="us-west-2" \

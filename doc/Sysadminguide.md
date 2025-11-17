@@ -1107,25 +1107,58 @@ If SAM is not available, you can deploy manually:
 
 ## Frontend Deployment
 
-### Step 1: Configure Environment
+### Quick Start: Automated Deployment Script
 
-Create `frontend/.env` with the API URL from backend deployment:
+The easiest way to deploy the frontend is using the provided script:
+
+```bash
+cd infrastructure
+
+# Deploy with IP filtering (recommended)
+./deploy-frontend.sh
+
+# Deploy without IP filtering (public access)
+./deploy-frontend.sh --no-ip-filter
+
+# Deploy with custom API URL
+./deploy-frontend.sh --api-url https://custom-api.example.com
+```
+
+The script automatically:
+- Fetches API URL from CloudFormation stack
+- Builds frontend with production configuration
+- Creates/updates S3 bucket
+- Uploads static files
+- Applies IP-filtered bucket policy (matching backend whitelist)
+- Enables static website hosting
+
+### Manual Deployment Steps
+
+If you prefer manual deployment or need custom configuration:
+
+#### Step 1: Configure Environment
+
+Create `frontend/.env.production` with the API URL from backend deployment:
 
 ```bash
 cd frontend
 
-# Create .env file
-cat > .env <<EOF
-VITE_API_BASE_URL=https://YOUR_API_ID.execute-api.us-west-2.amazonaws.com
+# Get API URL from stack
+API_URL=$(aws cloudformation describe-stacks \
+  --stack-name estimation-tool-api \
+  --query 'Stacks[0].Outputs[?OutputKey==`EstimationApiUrl`].OutputValue' \
+  --output text)
+
+# Create production environment file
+cat > .env.production <<EOF
+VITE_API_BASE_URL=$API_URL
 EOF
 ```
 
-Replace `YOUR_API_ID` with the actual API Gateway ID from the backend deployment output.
-
-### Step 2: Build Frontend
+#### Step 2: Build Frontend
 
 ```bash
-# Install dependencies
+# Install dependencies (if not already done)
 npm install
 
 # Build for production
@@ -1140,46 +1173,116 @@ ls -lh dist/
 # Should show index.html, assets/, and other static files
 ```
 
-### Step 3: Deploy to S3
+#### Step 3: Deploy to S3 with IP Filtering
 
 ```bash
-# Create S3 bucket (must be globally unique)
+# Setup variables
 BUCKET_NAME="estimation-tool-frontend-$(aws sts get-caller-identity --query Account --output text)"
-aws s3 mb s3://$BUCKET_NAME --region us-west-2
+AWS_REGION="us-west-2"
+
+# Create S3 bucket (must be globally unique)
+aws s3 mb s3://$BUCKET_NAME --region $AWS_REGION
+
+# Enable versioning
+aws s3api put-bucket-versioning \
+  --bucket $BUCKET_NAME \
+  --versioning-configuration Status=Enabled
 
 # Enable static website hosting
 aws s3 website s3://$BUCKET_NAME \
   --index-document index.html \
   --error-document index.html
 
-# Upload build artifacts
-aws s3 sync dist/ s3://$BUCKET_NAME --delete
+# Upload build artifacts (with proper caching)
+aws s3 sync dist/ s3://$BUCKET_NAME \
+  --delete \
+  --cache-control "public, max-age=31536000, immutable" \
+  --exclude "index.html"
 
-# Make bucket publicly readable
+# Upload index.html separately (no caching)
+aws s3 cp dist/index.html s3://$BUCKET_NAME/index.html \
+  --cache-control "no-cache, no-store, must-revalidate"
+
+# Get IP whitelist from backend stack
+ALLOWED_IPS=$(aws cloudformation describe-stacks \
+  --stack-name estimation-tool-api \
+  --region $AWS_REGION \
+  --query 'Stacks[0].Parameters[?ParameterKey==`AllowedIPRanges`].ParameterValue' \
+  --output text)
+
+# Convert comma-separated IPs to JSON array
+IFS=',' read -ra IP_ARRAY <<< "$ALLOWED_IPS"
+IP_JSON=$(printf ',"%s"' "${IP_ARRAY[@]}")
+IP_JSON="[${IP_JSON:1}]"
+
+# Create IP-filtered bucket policy
 cat > bucket-policy.json <<EOF
 {
   "Version": "2012-10-17",
   "Statement": [{
-    "Sid": "PublicReadGetObject",
+    "Sid": "IPFilteredPublicRead",
     "Effect": "Allow",
     "Principal": "*",
     "Action": "s3:GetObject",
-    "Resource": "arn:aws:s3:::$BUCKET_NAME/*"
+    "Resource": "arn:aws:s3:::${BUCKET_NAME}/*",
+    "Condition": {
+      "IpAddress": {
+        "aws:SourceIp": ${IP_JSON}
+      }
+    }
   }]
 }
 EOF
 
+# Configure public access block (allow policy-based access)
+aws s3api put-public-access-block \
+  --bucket $BUCKET_NAME \
+  --public-access-block-configuration \
+    BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=false,RestrictPublicBuckets=false
+
+# Apply bucket policy
 aws s3api put-bucket-policy \
   --bucket $BUCKET_NAME \
   --policy file://bucket-policy.json
 
 # Get website URL
-echo "Frontend URL: http://$BUCKET_NAME.s3-website-us-west-2.amazonaws.com"
+echo "Frontend URL: http://$BUCKET_NAME.s3-website-$AWS_REGION.amazonaws.com"
 ```
 
 **Access the Application**:
 ```
 http://estimation-tool-frontend-123456789012.s3-website-us-west-2.amazonaws.com
+```
+
+### Managing IP Access
+
+After deployment, use the IP management script to update access:
+
+```bash
+cd infrastructure
+
+# Add your current IP
+./manage-ip-whitelist.sh add-current
+
+# After updating IP whitelist, redeploy frontend to sync bucket policy
+./deploy-frontend.sh
+```
+
+See [IP Filtering Guide](./IP_FILTERING.md) for detailed instructions.
+
+### Frontend Updates
+
+To update the frontend after code changes:
+
+```bash
+# Quick method: Use deployment script
+cd infrastructure
+./deploy-frontend.sh
+
+# Manual method:
+cd frontend
+npm run build
+aws s3 sync dist/ s3://$BUCKET_NAME --delete
 ```
 
 ### Step 4: Optional - CloudFront Distribution

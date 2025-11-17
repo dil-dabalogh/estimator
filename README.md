@@ -13,6 +13,7 @@ A modern web application for generating Business Analyst (BA) estimation notes a
 - Man-week estimates from PERT analysis
 - Download generated BA notes and PERT estimates as Markdown files
 - **Export estimations directly to Confluence pages**
+- **IP-based access control for API and frontend**
 - FastAPI backend deployable to AWS Lambda
 - Support for OpenAI and AWS Bedrock LLM providers
 
@@ -57,6 +58,7 @@ The application will be available at `http://localhost:5173`
 - [Environment Variables Guide](doc/ENVIRONMENT_VARIABLES.md) - How to configure environment variables for AWS deployment
 - [AWS Authentication Guide](doc/AWS_AUTHENTICATION.md) - AWS authentication methods and Bedrock configuration
 - [Network Security Guide](doc/NETWORK_SECURITY.md) - How to restrict API access to your company network
+- [IP Filtering Guide](doc/IP_FILTERING.md) - Manage IP whitelist for secure access control
 - [Bedrock Agent Setup Guide](doc/BEDROCK_AGENT_SETUP.md) - AWS Bedrock Agent with MCP integration
 
 ### Feature Documentation

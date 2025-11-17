@@ -96,7 +96,29 @@ curl $API_URL/health
 
 ## Step 4: Update IP Ranges Later
 
-To update allowed IP ranges after deployment, redeploy with new parameter:
+### Quick Method: Using IP Management Script (Recommended)
+
+```bash
+cd infrastructure
+
+# Add your current IP
+./manage-ip-whitelist.sh add-current
+
+# Add specific IP or range
+./manage-ip-whitelist.sh add 203.0.113.45
+
+# View current whitelist
+./manage-ip-whitelist.sh list
+
+# Remove all IPs (deny all)
+./manage-ip-whitelist.sh remove-all
+```
+
+See the [IP Filtering Guide](./IP_FILTERING.md) for detailed usage and examples.
+
+### Manual Method: CloudFormation Update
+
+To update allowed IP ranges manually:
 
 ```bash
 cd infrastructure
@@ -104,7 +126,7 @@ sam deploy --parameter-overrides \
   AllowedIPRanges="NEW_IP_RANGES"
 ```
 
-**Note**: This redeploys the authorizer Lambda with updated IP ranges. The update takes just a few seconds.
+**Note**: The script method is preferred as it automatically handles all parameters and updates both backend and frontend.
 
 ## Common Scenarios
 
@@ -262,6 +284,7 @@ This redeploys the authorizer with no IP restrictions (allows all IPs).
 
 ## Related Documentation
 
+- [IP Filtering Guide](./IP_FILTERING.md) - Detailed IP management and troubleshooting
 - [System Administrator Guide](./Sysadminguide.md) - General deployment
 - [Environment Variables Guide](./ENVIRONMENT_VARIABLES.md) - Configuration
 

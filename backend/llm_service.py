@@ -65,8 +65,16 @@ class OpenAIProvider(LLMProvider):
         if not config.model.lower().startswith("gpt-5"):
             create_kwargs["temperature"] = config.temperature
         
+        print(f"OpenAI: Calling model {config.model} with {len(system_prompt)} char system prompt and {len(combined_user_content)} char user content")
+        
         resp = self._client.chat.completions.create(**create_kwargs)
         content = resp.choices[0].message.content or ""
+        
+        print(f"OpenAI: Received response with {len(content)} chars, finish_reason: {resp.choices[0].finish_reason}")
+        
+        if not content or len(content.strip()) < 50:
+            print(f"OpenAI: WARNING - Response is too short or empty. Raw content: {repr(content[:200])}")
+        
         return content.strip()
 
 
@@ -136,6 +144,9 @@ class BedrockProvider(LLMProvider):
                     "temperature": temperature,
                 }
         
+        combined_content = "\n\n".join(user_messages) if is_claude else f"{system_prompt}\n\n" + "\n\n".join(user_messages)
+        print(f"Bedrock: Invoking model {model_id} with {len(combined_content)} char input")
+        
         try:
             response = client.invoke_model(
                 modelId=model_id,
@@ -146,24 +157,32 @@ class BedrockProvider(LLMProvider):
             
             response_body = json.loads(response["body"].read())
             
+            result_text = ""
             if is_claude:
                 if "content" in response_body and len(response_body["content"]) > 0:
                     text_parts = []
                     for block in response_body["content"]:
                         if block.get("type") == "text" and "text" in block:
                             text_parts.append(block["text"])
-                    return "\n".join(text_parts) if text_parts else ""
+                    result_text = "\n".join(text_parts) if text_parts else ""
+                    print(f"Bedrock Claude: Received {len(result_text)} chars, stop_reason: {response_body.get('stop_reason', 'unknown')}")
                 else:
                     raise RuntimeError("Unexpected Claude response format")
             else:
                 if "results" in response_body and len(response_body["results"]) > 0:
-                    return response_body["results"][0].get("outputText", "")
+                    result_text = response_body["results"][0].get("outputText", "")
                 elif "completion" in response_body:
-                    return response_body["completion"]
+                    result_text = response_body["completion"]
                 elif "generation" in response_body:
-                    return response_body["generation"]
+                    result_text = response_body["generation"]
                 else:
                     raise RuntimeError(f"Unexpected response format for model {model_id}")
+                print(f"Bedrock {model_id}: Received {len(result_text)} chars")
+            
+            if not result_text or len(result_text.strip()) < 50:
+                print(f"Bedrock: WARNING - Response is too short or empty. Raw content: {repr(result_text[:200])}")
+            
+            return result_text
         except self._ClientError as e:
             error_code = e.response.get("Error", {}).get("Code", "Unknown")
             error_msg = e.response.get("Error", {}).get("Message", str(e))
@@ -183,6 +202,8 @@ class BedrockProvider(LLMProvider):
         client = self._get_agent_client()
         session_id = uuid.uuid4().hex
         combined_prompt = f"{system_prompt}\n\n" + "\n\n".join(user_messages)
+        
+        print(f"Bedrock Agent: Invoking agent {agent_id} with {len(combined_prompt)} char input")
         
         try:
             response = client.invoke_agent(
@@ -210,7 +231,13 @@ class BedrockProvider(LLMProvider):
                     elif "text" in chunk:
                         parts.append(chunk["text"])
             
-            return "".join(parts) if parts else ""
+            result_text = "".join(parts) if parts else ""
+            print(f"Bedrock Agent: Received {len(result_text)} chars from {len(parts)} chunks")
+            
+            if not result_text or len(result_text.strip()) < 50:
+                print(f"Bedrock Agent: WARNING - Response is too short or empty. Raw content: {repr(result_text[:200])}")
+            
+            return result_text
         except self._ClientError as e:
             error_code = e.response.get("Error", {}).get("Code", "Unknown")
             error_msg = e.response.get("Error", {}).get("Message", str(e))

@@ -91,8 +91,17 @@ async def process_single_estimation(
         
         output_dir = Path("/tmp") / session_id / request.name
         output_dir.mkdir(parents=True, exist_ok=True)
+        
+        if not ba_notes or len(ba_notes.strip()) < 100:
+            raise ValueError(
+                f"BA notes generation failed: received empty or too short content ({len(ba_notes)} chars). "
+                "This may indicate an LLM error or configuration issue."
+            )
+        
         (output_dir / "BA_Estimation_Notes.md").write_text(ba_notes, encoding="utf-8")
         (output_dir / "input.confluence.page.md").write_text(page_md, encoding="utf-8")
+        
+        print(f"[{request.name}] BA notes generated successfully: {len(ba_notes)} chars")
         
         result.ba_notes_available = True
         result.status = EstimationStatus.PERT_GENERATION
@@ -110,12 +119,23 @@ async def process_single_estimation(
             request.ballpark,
         )
         
+        if not pert_sheet or len(pert_sheet.strip()) < 100:
+            raise ValueError(
+                f"PERT estimation generation failed: received empty or too short content ({len(pert_sheet)} chars). "
+                "This may indicate an LLM error or configuration issue."
+            )
+        
         (output_dir / "PERT_Estimate.md").write_text(pert_sheet, encoding="utf-8")
+        
+        print(f"[{request.name}] PERT estimation generated successfully: {len(pert_sheet)} chars")
         
         man_weeks = parse_man_weeks_from_pert(pert_sheet)
         if man_weeks:
             result.man_weeks = man_weeks
             result.tshirt_size = calculate_tshirt_size(man_weeks)
+            print(f"[{request.name}] Parsed {man_weeks} man-weeks, T-shirt size: {result.tshirt_size}")
+        else:
+            print(f"[{request.name}] Warning: Could not parse man-weeks from PERT estimation")
         
         result.pert_available = True
         result.status = EstimationStatus.COMPLETED

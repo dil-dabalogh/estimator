@@ -6,7 +6,7 @@ from models import EstimationRequest, EstimationResult, EstimationStatus
 from config import AppConfig
 from llm_service import OpenAIProvider, BedrockProvider
 from confluence_client import parse_confluence_config
-from estimation_service import generate_ba_notes, generate_pert_sheet
+from estimation_service import generate_requirements, generate_ba_notes, generate_pert_sheet
 from utils import parse_man_weeks_from_pert, calculate_tshirt_size
 from websocket_manager import ws_manager
 
@@ -73,15 +73,15 @@ async def process_single_estimation(
             config.atlassian_token,
         )
         
-        result.status = EstimationStatus.BA_GENERATION
-        result.progress = "Generating BA estimation notes"
+        result.status = EstimationStatus.REQUIREMENTS_GENERATION
+        result.progress = "Generating requirements document"
         sessions[session_id][index] = result
         await broadcast_update(session_id, sessions[session_id])
         
         loop = asyncio.get_event_loop()
-        title, page_md, ba_notes = await loop.run_in_executor(
+        title, page_md, requirements_md = await loop.run_in_executor(
             None,
-            generate_ba_notes,
+            generate_requirements,
             provider,
             confluence_config,
             request.url,
@@ -92,6 +92,33 @@ async def process_single_estimation(
         output_dir = Path("/tmp") / session_id / request.name
         output_dir.mkdir(parents=True, exist_ok=True)
         
+        if not requirements_md or len(requirements_md.strip()) < 100:
+            raise ValueError(
+                f"Requirements generation failed: received empty or too short content ({len(requirements_md)} chars). "
+                "This may indicate an LLM error or configuration issue."
+            )
+        
+        (output_dir / "Requirements.md").write_text(requirements_md, encoding="utf-8")
+        (output_dir / "input.confluence.page.md").write_text(page_md, encoding="utf-8")
+        
+        print(f"[{request.name}] Requirements generated successfully: {len(requirements_md)} chars")
+        
+        result.requirements_available = True
+        result.status = EstimationStatus.BA_GENERATION
+        result.progress = "Generating BA estimation notes"
+        sessions[session_id][index] = result
+        await broadcast_update(session_id, sessions[session_id])
+        
+        ba_notes = await loop.run_in_executor(
+            None,
+            generate_ba_notes,
+            provider,
+            request.url,
+            requirements_md,
+            config.llm_config,
+            request.ballpark,
+        )
+        
         if not ba_notes or len(ba_notes.strip()) < 100:
             raise ValueError(
                 f"BA notes generation failed: received empty or too short content ({len(ba_notes)} chars). "
@@ -99,7 +126,6 @@ async def process_single_estimation(
             )
         
         (output_dir / "BA_Estimation_Notes.md").write_text(ba_notes, encoding="utf-8")
-        (output_dir / "input.confluence.page.md").write_text(page_md, encoding="utf-8")
         
         print(f"[{request.name}] BA notes generated successfully: {len(ba_notes)} chars")
         

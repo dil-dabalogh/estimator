@@ -15,6 +15,7 @@ export interface BatchResponse {
 export type EstimationStatus = 
   | "pending"
   | "fetching"
+  | "requirements_generation"
   | "ba_generation"
   | "pert_generation"
   | "completed"
@@ -29,6 +30,7 @@ export interface EstimationResult {
   tshirt_size?: TShirtSize
   man_weeks?: number
   error?: string
+  requirements_available: boolean
   ba_notes_available: boolean
   pert_available: boolean
 }

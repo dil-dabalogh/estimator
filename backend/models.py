@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field, HttpUrl
 class EstimationStatus(str, Enum):
     PENDING = "pending"
     FETCHING = "fetching"
+    REQUIREMENTS_GENERATION = "requirements_generation"
     BA_GENERATION = "ba_generation"
     PERT_GENERATION = "pert_generation"
     COMPLETED = "completed"
@@ -42,6 +43,7 @@ class EstimationResult(BaseModel):
     tshirt_size: Optional[TShirtSize] = None
     man_weeks: Optional[float] = None
     error: Optional[str] = None
+    requirements_available: bool = False
     ba_notes_available: bool = False
     pert_available: bool = False
 

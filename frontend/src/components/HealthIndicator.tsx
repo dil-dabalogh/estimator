@@ -2,8 +2,15 @@ import { useEffect, useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { API_BASE_URL } from "@/config"
 
+interface ModelInfo {
+  provider: string
+  model: string
+  agentAlias: string | null
+}
+
 export function HealthIndicator() {
   const [status, setStatus] = useState<"checking" | "healthy" | "unhealthy">("checking")
+  const [modelInfo, setModelInfo] = useState<ModelInfo | null>(null)
 
   useEffect(() => {
     const checkHealth = async () => {
@@ -14,12 +21,24 @@ export function HealthIndicator() {
         })
         
         if (response.ok) {
+          const data = await response.json()
           setStatus("healthy")
+          
+          // Extract model/agent info if available
+          if (data.provider && data.model) {
+            setModelInfo({
+              provider: data.provider,
+              model: data.model,
+              agentAlias: data.agent_alias || null
+            })
+          }
         } else {
           setStatus("unhealthy")
+          setModelInfo(null)
         }
       } catch (error) {
         setStatus("unhealthy")
+        setModelInfo(null)
       }
     }
 
@@ -35,8 +54,17 @@ export function HealthIndicator() {
   const getStatusConfig = () => {
     switch (status) {
       case "healthy":
+        let label = "Backend Online"
+        if (modelInfo) {
+          const { provider, model, agentAlias } = modelInfo
+          if (provider === "bedrock") {
+            label = agentAlias ? `Bedrock | ${agentAlias}` : `Bedrock | ${model}`
+          } else if (provider === "openai") {
+            label = `OpenAI | ${model}`
+          }
+        }
         return {
-          label: "Backend Online",
+          label,
           className: "bg-green-500 text-white",
           dotColor: "bg-green-400",
         }

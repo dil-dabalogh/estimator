@@ -23,7 +23,7 @@ const tshirtColors: Record<TShirtSize, string> = {
   XXL: "bg-purple-500"
 }
 
-const downloadFile = async (sessionId: string, name: string, type: "ba-notes" | "pert") => {
+const downloadFile = async (sessionId: string, name: string, type: "requirements" | "ba-notes" | "pert") => {
   try {
     const response = await fetch(`${API_BASE_URL}/api/estimations/${sessionId}/${name}/${type}`)
     if (!response.ok) throw new Error("Download failed")
@@ -32,7 +32,7 @@ const downloadFile = async (sessionId: string, name: string, type: "ba-notes" | 
     const url = window.URL.createObjectURL(blob)
     const a = document.createElement("a")
     a.href = url
-    a.download = `${name}_${type === "ba-notes" ? "BA_Notes" : "PERT"}.md`
+    a.download = `${name}_${type === "requirements" ? "Requirements" : type === "ba-notes" ? "BA_Notes" : "PERT"}.md`
     document.body.appendChild(a)
     a.click()
     window.URL.revokeObjectURL(url)
@@ -146,6 +146,7 @@ export function ResultsTable({ results, sessionId, parentPageUrl }: ResultsTable
               <TableHead>Status</TableHead>
               <TableHead>T-shirt Size</TableHead>
               <TableHead>Man-weeks</TableHead>
+              <TableHead>Requirements</TableHead>
               <TableHead>BA Notes</TableHead>
               <TableHead>PERT</TableHead>
               <TableHead>Export to Confluence</TableHead>
@@ -180,6 +181,17 @@ export function ResultsTable({ results, sessionId, parentPageUrl }: ResultsTable
                 </TableCell>
                 <TableCell>
                   {result.man_weeks != null && result.man_weeks.toFixed(1)}
+                </TableCell>
+                <TableCell>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={!result.requirements_available}
+                    onClick={() => downloadFile(sessionId, result.name, "requirements")}
+                  >
+                    <Download className="h-3 w-3 mr-1" />
+                    Download
+                  </Button>
                 </TableCell>
                 <TableCell>
                   <Button

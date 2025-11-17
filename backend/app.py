@@ -37,7 +37,24 @@ app.add_middleware(
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy"}
+    """Health check endpoint that returns backend status and LLM configuration."""
+    try:
+        config = load_config()
+        
+        # Determine agent alias if using Bedrock agent
+        agent_alias = None
+        if config.provider == "bedrock" and config.llm_config.agent_alias_id:
+            agent_alias = config.llm_config.agent_alias_id
+        
+        return {
+            "status": "healthy",
+            "provider": config.provider,
+            "model": config.llm_config.model or "agent",
+            "agent_alias": agent_alias
+        }
+    except Exception:
+        # If config loading fails, still return basic health status
+        return {"status": "healthy"}
 
 
 @app.get("/api/fetch-title", response_model=FetchTitleResponse)
@@ -102,6 +119,19 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
         await ws_manager.disconnect(session_id, websocket)
 
 
+@app.get("/api/estimations/{session_id}/{name}/requirements")
+async def download_requirements(session_id: str, name: str):
+    file_path = Path("/tmp") / session_id / name / "Requirements.md"
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="Requirements not found")
+    
+    return FileResponse(
+        file_path,
+        media_type="text/markdown",
+        filename=f"{name}_Requirements.md"
+    )
+
+
 @app.get("/api/estimations/{session_id}/{name}/ba-notes")
 async def download_ba_notes(session_id: str, name: str):
     file_path = Path("/tmp") / session_id / name / "BA_Estimation_Notes.md"
@@ -142,23 +172,27 @@ async def export_to_confluence(session_id: str, name: str, request: ConfluenceEx
     
     # Verify files exist
     base_path = Path("/tmp") / session_id / name
-    pert_path = base_path / "PERT_Estimate.md"
+    requirements_path = base_path / "Requirements.md"
     ba_notes_path = base_path / "BA_Estimation_Notes.md"
+    pert_path = base_path / "PERT_Estimate.md"
     
-    if not pert_path.exists():
-        raise HTTPException(status_code=404, detail="PERT estimate not found")
+    if not requirements_path.exists():
+        raise HTTPException(status_code=404, detail="Requirements not found")
     if not ba_notes_path.exists():
         raise HTTPException(status_code=404, detail="BA notes not found")
+    if not pert_path.exists():
+        raise HTTPException(status_code=404, detail="PERT estimate not found")
     
     # Read the content files
     try:
-        pert_content = pert_path.read_text(encoding="utf-8")
+        requirements_content = requirements_path.read_text(encoding="utf-8")
         ba_notes_content = ba_notes_path.read_text(encoding="utf-8")
+        pert_content = pert_path.read_text(encoding="utf-8")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error reading files: {str(e)}")
     
-    # Combine content: PERT first, then BA notes
-    combined_content = f"{pert_content}\n\n---\n\n{ba_notes_content}"
+    # Combine content: Requirements first, then BA notes, then PERT
+    combined_content = f"{requirements_content}\n\n---\n\n{ba_notes_content}\n\n---\n\n{pert_content}"
     
     # Create Confluence configuration
     confluence_cfg = parse_confluence_config(

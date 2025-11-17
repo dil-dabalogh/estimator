@@ -62,8 +62,10 @@ elif [ "$DEPLOYMENT_MODE" = "config" ]; then
     --template-file .aws-sam/build/template.yaml \
     --stack-name estimation-tool-api \
     --capabilities CAPABILITY_IAM \
+    --resolve-s3 \
     --force-upload \
-    --no-confirm-changeset
+    --no-confirm-changeset \
+    --region us-west-2
   
 else
   echo "ERROR: Invalid deployment mode: $DEPLOYMENT_MODE"

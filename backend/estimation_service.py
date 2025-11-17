@@ -9,9 +9,18 @@ from confluence_client import (
 )
 
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-PERSONAS_DIR = REPO_ROOT / "personas"
-TEMPLATES_DIR = REPO_ROOT / "templates"
+# Support both local development and Lambda deployment
+# In Lambda, personas and templates are copied to the backend directory
+BACKEND_DIR = Path(__file__).resolve().parent
+REPO_ROOT = BACKEND_DIR.parent
+
+# Try Lambda location first (backend/personas), then fall back to project root
+if (BACKEND_DIR / "personas").exists():
+    PERSONAS_DIR = BACKEND_DIR / "personas"
+    TEMPLATES_DIR = BACKEND_DIR / "templates"
+else:
+    PERSONAS_DIR = REPO_ROOT / "personas"
+    TEMPLATES_DIR = REPO_ROOT / "templates"
 
 
 def load_ba_persona() -> str:

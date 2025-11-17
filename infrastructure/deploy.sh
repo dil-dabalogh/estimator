@@ -34,21 +34,35 @@ elif [ "$DEPLOYMENT_MODE" = "config" ]; then
   echo "Running CONFIG-BASED deployment (using samconfig.toml)..."
   echo ""
   
-  echo "Step 1: Building Lambda package with dependencies..."
+  echo "Step 1: Cleaning previous build artifacts..."
+  rm -rf .aws-sam/build .aws-sam/cache
+  
+  echo "Step 2: Building Lambda package with dependencies..."
   sam build \
     --template infrastructure/template.yaml \
     --use-container
   
   echo ""
-  echo "Build artifacts:"
+  echo "Step 3: Verifying build artifacts..."
+  echo "Build directory contents:"
   ls -la .aws-sam/build/ || echo "Build directory not found"
+  echo ""
+  echo "Checking for mangum in EstimationFunction:"
+  if ls .aws-sam/build/EstimationFunction/ | grep -q mangum; then
+    echo "✓ mangum found in build"
+  else
+    echo "✗ mangum NOT FOUND - deployment will fail!"
+    exit 1
+  fi
   
   echo ""
-  echo "Step 2: Deploying using samconfig.toml [dev] profile..."
+  echo "Step 4: Deploying using samconfig.toml [dev] profile..."
   sam deploy \
     --config-env dev \
-    --template infrastructure/template.yaml \
-    --capabilities CAPABILITY_IAM
+    --template-file .aws-sam/build/template.yaml \
+    --capabilities CAPABILITY_IAM \
+    --force-upload \
+    --no-confirm-changeset
   
 else
   echo "ERROR: Invalid deployment mode: $DEPLOYMENT_MODE"

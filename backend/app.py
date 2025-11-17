@@ -77,6 +77,18 @@ async def create_batch_estimation(request: BatchRequest):
     return BatchResponse(session_id=session_id)
 
 
+@app.get("/api/estimations/{session_id}/status")
+async def get_session_status(session_id: str):
+    """Get the current status of all estimations in a session (for polling)."""
+    if session_id not in sessions:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    return {
+        "session_id": session_id,
+        "results": [result.model_dump() for result in sessions[session_id]]
+    }
+
+
 @app.websocket("/ws/{session_id}")
 async def websocket_endpoint(websocket: WebSocket, session_id: str):
     await ws_manager.connect(session_id, websocket)

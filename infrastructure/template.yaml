@@ -91,6 +91,8 @@ Resources:
 
   EstimationFunction:
     Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: python3.11
     Properties:
       CodeUri: ../backend
       Handler: lambda_handler.handler

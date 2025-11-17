@@ -65,16 +65,7 @@ elif [ "$DEPLOYMENT_MODE" = "config" ]; then
     --resolve-s3 \
     --force-upload \
     --no-confirm-changeset \
-    --region us-west-2 \
-    --parameter-overrides \
-      LLMProvider="bedrock" \
-      OpenAIModel="gpt-5" \
-      BedrockRegion="us-west-2" \
-      BedrockModel="anthropic.claude-3-sonnet-20240229-v1:0" \
-      BedrockAgentId="R9RUJP1YRJ" \
-      BedrockAgentAliasId="0XRHHWRSGG" \
-      AtlassianURL="https://diligentbrands.atlassian.net" \
-      AtlassianEmail="dabalogh@diligent.com"
+    --region us-west-2
   
 else
   echo "ERROR: Invalid deployment mode: $DEPLOYMENT_MODE"

@@ -96,17 +96,17 @@ update_stack_ips() {
       --stack-name "$STACK_NAME" \
       --use-previous-template \
       --parameters \
-        ParameterKey=AllowedIPRanges,ParameterValue="$new_ip_list" \
-        ParameterKey=LLMProvider,UsePreviousValue=true \
-        ParameterKey=OpenAIApiKey,UsePreviousValue=true \
-        ParameterKey=OpenAIModel,UsePreviousValue=true \
-        ParameterKey=BedrockRegion,UsePreviousValue=true \
-        ParameterKey=BedrockModel,UsePreviousValue=true \
-        ParameterKey=BedrockAgentId,UsePreviousValue=true \
-        ParameterKey=BedrockAgentAliasId,UsePreviousValue=true \
-        ParameterKey=AtlassianURL,UsePreviousValue=true \
-        ParameterKey=AtlassianEmail,UsePreviousValue=true \
-        ParameterKey=AtlassianToken,UsePreviousValue=true \
+        "ParameterKey=AllowedIPRanges,ParameterValue=\"$new_ip_list\"" \
+        "ParameterKey=LLMProvider,UsePreviousValue=true" \
+        "ParameterKey=OpenAIApiKey,UsePreviousValue=true" \
+        "ParameterKey=OpenAIModel,UsePreviousValue=true" \
+        "ParameterKey=BedrockRegion,UsePreviousValue=true" \
+        "ParameterKey=BedrockModel,UsePreviousValue=true" \
+        "ParameterKey=BedrockAgentId,UsePreviousValue=true" \
+        "ParameterKey=BedrockAgentAliasId,UsePreviousValue=true" \
+        "ParameterKey=AtlassianURL,UsePreviousValue=true" \
+        "ParameterKey=AtlassianEmail,UsePreviousValue=true" \
+        "ParameterKey=AtlassianToken,UsePreviousValue=true" \
       --capabilities CAPABILITY_IAM \
       --region "$AWS_REGION"
     

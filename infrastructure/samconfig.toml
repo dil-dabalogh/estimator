@@ -1,13 +1,12 @@
 version = 0.1
 
 [default.deploy.parameters]
-stack_name = "sam-app"
+stack_name = "estimation-tool-api"
 resolve_s3 = true
-s3_prefix = "sam-app"
-region = "us-west-2"
+s3_prefix = "estimation-tool-api"
 confirm_changeset = true
 capabilities = "CAPABILITY_IAM"
-parameter_overrides = "LLMProvider=\"bedrock\" OpenAIModel=\"gpt-5\" AWSRegionBedrock=\"us-west-2\" BedrockModel=\"anthropic.claude-3-sonnet-20240229-v1:0\" AtlassianURL=\"https://diligentbrands.atlassian.net\" AtlassianEmail=\"dabalogh@diligent.com\""
+parameter_overrides = "AllowedIPRanges=\"62.216.248.197/32\" LLMProvider=\"bedrock\" OpenAIModel=\"gpt-5\" BedrockRegion=\"us-west-2\" BedrockModel=\"anthropic.claude-3-sonnet-20240229-v1:0\" BedrockAgentId=\"R9RUJP1YRJ\" BedrockAgentAliasId=\"0XRHHWRSGG\" AtlassianURL=\"https://diligentbrands.atlassian.net\" AtlassianEmail=\"dabalogh@diligent.com\""
 image_repositories = []
 
 [default.global.parameters]

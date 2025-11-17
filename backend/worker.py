@@ -1,3 +1,4 @@
+import os
 import asyncio
 from pathlib import Path
 from typing import Dict
@@ -11,6 +12,37 @@ from websocket_manager import ws_manager
 
 
 sessions: Dict[str, list[EstimationResult]] = {}
+
+
+# Check if running in Lambda with WebSocket API
+IS_LAMBDA = bool(os.environ.get('WEBSOCKET_API_ENDPOINT'))
+WEBSOCKET_API_ENDPOINT = os.environ.get('WEBSOCKET_API_ENDPOINT', '')
+
+
+async def broadcast_update(session_id: str, results: list[EstimationResult]):
+    """
+    Broadcast update to WebSocket clients.
+    Uses Lambda WebSocket API if running in Lambda, otherwise uses FastAPI WebSocket manager.
+    """
+    if IS_LAMBDA and WEBSOCKET_API_ENDPOINT:
+        # Running in Lambda - use API Gateway WebSocket
+        try:
+            from websocket_handlers import broadcast_to_session
+            # Run in thread pool since broadcast_to_session is synchronous
+            loop = asyncio.get_event_loop()
+            message = {"session_id": session_id, "results": [r.model_dump() for r in results]}
+            await loop.run_in_executor(
+                None, 
+                broadcast_to_session,
+                session_id,
+                message,
+                WEBSOCKET_API_ENDPOINT
+            )
+        except Exception as e:
+            print(f"Error broadcasting via Lambda WebSocket: {e}")
+    else:
+        # Running locally with FastAPI
+        await ws_manager.broadcast(session_id, results)
 
 
 async def process_single_estimation(
@@ -28,7 +60,7 @@ async def process_single_estimation(
         result.status = EstimationStatus.FETCHING
         result.progress = "Fetching content from Confluence/Jira"
         sessions[session_id][index] = result
-        await ws_manager.broadcast(session_id, sessions[session_id])
+        await broadcast_update(session_id, sessions[session_id])
         
         if config.provider == "openai":
             provider = OpenAIProvider(api_key=config.openai_api_key)
@@ -44,7 +76,7 @@ async def process_single_estimation(
         result.status = EstimationStatus.BA_GENERATION
         result.progress = "Generating BA estimation notes"
         sessions[session_id][index] = result
-        await ws_manager.broadcast(session_id, sessions[session_id])
+        await broadcast_update(session_id, sessions[session_id])
         
         loop = asyncio.get_event_loop()
         title, page_md, ba_notes = await loop.run_in_executor(
@@ -66,7 +98,7 @@ async def process_single_estimation(
         result.status = EstimationStatus.PERT_GENERATION
         result.progress = "Generating PERT estimation"
         sessions[session_id][index] = result
-        await ws_manager.broadcast(session_id, sessions[session_id])
+        await broadcast_update(session_id, sessions[session_id])
         
         pert_sheet = await loop.run_in_executor(
             None,
@@ -89,14 +121,14 @@ async def process_single_estimation(
         result.status = EstimationStatus.COMPLETED
         result.progress = "Completed"
         sessions[session_id][index] = result
-        await ws_manager.broadcast(session_id, sessions[session_id])
+        await broadcast_update(session_id, sessions[session_id])
         
     except Exception as e:
         result.status = EstimationStatus.FAILED
         result.error = str(e)
         result.progress = "Failed"
         sessions[session_id][index] = result
-        await ws_manager.broadcast(session_id, sessions[session_id])
+        await broadcast_update(session_id, sessions[session_id])
     
     return result
 
@@ -111,7 +143,7 @@ async def process_batch(
         for req in requests
     ]
     
-    await ws_manager.broadcast(session_id, sessions[session_id])
+    await broadcast_update(session_id, sessions[session_id])
     
     tasks = [
         process_single_estimation(req, config, session_id, i)

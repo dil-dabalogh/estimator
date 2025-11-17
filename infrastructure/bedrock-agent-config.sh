@@ -1,0 +1,4 @@
+#!/bin/bash
+export BEDROCK_AGENT_ID=R9RUJP1YRJ
+export BEDROCK_AGENT_ALIAS_ID=0XRHHWRSGG
+export AWS_REGION=us-west-2

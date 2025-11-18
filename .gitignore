@@ -69,3 +69,8 @@ orchestrator.conf
 
 # Infrastructure generated files
 infrastructure/bedrock-agent-config.sh
+
+# SAM configuration (environment-specific)
+samconfig.toml
+infrastructure/samconfig.toml
+**/samconfig.toml

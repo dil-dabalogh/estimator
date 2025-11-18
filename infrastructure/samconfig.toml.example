@@ -1,0 +1,31 @@
+version = 0.1
+
+# SAM CLI configuration file - Copy to samconfig.toml and customize
+# This file contains environment-specific settings and should not be committed
+
+[default.deploy.parameters]
+stack_name = "estimation-tool-api"
+resolve_s3 = true
+s3_prefix = "estimation-tool-api"
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM"
+parameter_overrides = "AllowedIPRanges=\"YOUR_IP/32\" LLMProvider=\"bedrock\" OpenAIModel=\"gpt-5\" BedrockRegion=\"us-west-2\" BedrockModel=\"anthropic.claude-3-5-sonnet-20241022-v2:0\" BedrockAgentId=\"\" BedrockAgentAliasId=\"\" AtlassianURL=\"https://your-company.atlassian.net\" AtlassianEmail=\"your-email@company.com\""
+image_repositories = []
+
+[default.global.parameters]
+region = "us-west-2"
+
+[dev.deploy.parameters]
+stack_name = "estimation-tool-api"
+resolve_s3 = true
+s3_prefix = "estimation-tool-api"
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM"
+# Dev environment - allow all IPs for testing (use 127.0.0.1/32 to deny all)
+parameter_overrides = "AllowedIPRanges=\"0.0.0.0/0\" LLMProvider=\"bedrock\" OpenAIModel=\"gpt-5\" BedrockRegion=\"us-west-2\" BedrockModel=\"anthropic.claude-3-5-sonnet-20241022-v2:0\" BedrockAgentId=\"\" BedrockAgentAliasId=\"\" AtlassianURL=\"https://your-company.atlassian.net\" AtlassianEmail=\"your-email@company.com\""
+image_repositories = []
+disable_rollback = true
+
+[dev.global.parameters]
+region = "us-west-2"
+

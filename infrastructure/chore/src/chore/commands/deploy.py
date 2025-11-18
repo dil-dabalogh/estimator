@@ -32,7 +32,9 @@ def deploy_backend(
     """
     header("Building and Deploying Estimation Tool API")
     
-    project_root = Path(__file__).parent.parent.parent.parent
+    # Navigate from: .../infrastructure/chore/src/chore/commands/deploy.py
+    # To: .../Estimation (project root)
+    project_root = Path(__file__).parent.parent.parent.parent.parent.parent
     infrastructure_dir = project_root / "infrastructure"
     template_path = infrastructure_dir / "template.yaml"
     
@@ -177,7 +179,9 @@ def deploy_frontend(
     """
     header("Deploy Frontend to S3")
     
-    project_root = Path(__file__).parent.parent.parent.parent
+    # Navigate from: .../infrastructure/chore/src/chore/commands/deploy.py
+    # To: .../Estimation (project root)
+    project_root = Path(__file__).parent.parent.parent.parent.parent.parent
     frontend_dir = project_root / "frontend"
     
     if not frontend_dir.exists():

@@ -29,7 +29,9 @@ def setup_agent(
     """
     header("Creating AWS Bedrock Agent for Estimation Tool")
     
-    project_root = Path(__file__).parent.parent.parent.parent
+    # Navigate from: .../infrastructure/chore/src/chore/commands/bedrock.py
+    # To: .../Estimation (project root)
+    project_root = Path(__file__).parent.parent.parent.parent.parent.parent
     instruction_file = project_root / "personas" / "combined_agent_instruction.txt"
     
     if not instruction_file.exists():
@@ -208,7 +210,9 @@ def update_agent(
         error("Provide --agent-id or run 'chore bedrock setup' first")
         raise typer.Exit(1)
     
-    project_root = Path(__file__).parent.parent.parent.parent
+    # Navigate from: .../infrastructure/chore/src/chore/commands/bedrock.py
+    # To: .../Estimation (project root)
+    project_root = Path(__file__).parent.parent.parent.parent.parent.parent
     instruction_file = project_root / "personas" / "combined_agent_instruction.txt"
     
     if not instruction_file.exists():

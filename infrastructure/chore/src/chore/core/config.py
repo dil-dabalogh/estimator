@@ -25,7 +25,9 @@ class ConfigParser:
     def __init__(self, config_path: Optional[Path] = None):
         """Initialize config parser with optional config path."""
         if config_path is None:
-            config_path = Path(__file__).parent.parent.parent / "samconfig.toml"
+            # Navigate from: .../infrastructure/chore/src/chore/core/config.py
+            # To: .../infrastructure/samconfig.toml
+            config_path = Path(__file__).parent.parent.parent.parent.parent / "samconfig.toml"
         
         self.config_path = config_path
         self._config: Optional[Dict[str, Any]] = None

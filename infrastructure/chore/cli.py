@@ -8,6 +8,7 @@ app = typer.Typer(
     help="Infrastructure management tool for Estimation Tool",
     no_args_is_help=True,
     add_completion=False,
+    rich_markup_mode=None,  # Disable rich formatting to avoid Python 3.14 compatibility issues
 )
 
 console = Console()

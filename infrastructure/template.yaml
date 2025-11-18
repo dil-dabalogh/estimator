@@ -41,7 +41,7 @@ Parameters:
   
   BedrockModel:
     Type: String
-    Default: anthropic.claude-sonnet-4-20250514-v1:0
+    Default: anthropic.claude-3-5-sonnet-20241022-v2:0
   
   BedrockAgentId:
     Type: String

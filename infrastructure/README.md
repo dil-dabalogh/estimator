@@ -1,6 +1,41 @@
-# Infrastructure Scripts
+# Infrastructure Management
 
-This directory contains AWS infrastructure deployment and management scripts for the Estimation Tool.
+This directory contains AWS infrastructure deployment and management tools for the Estimation Tool.
+
+## Chore CLI Tool (Recommended)
+
+A modern Python CLI/TUI tool that provides a unified interface for all infrastructure management tasks. It supports both direct command invocation and interactive menu navigation.
+
+### Quick Start
+
+```bash
+cd infrastructure
+pip install -r chore/requirements.txt
+python -m chore --help
+python -m chore --interactive  # Launch interactive menu
+```
+
+### Example Commands
+
+```bash
+# Deploy
+python -m chore deploy backend config
+python -m chore deploy frontend
+
+# IP Management
+python -m chore ip list
+python -m chore ip add-current
+
+# Diagnostics
+python -m chore diagnose api
+
+# Bedrock Agent
+python -m chore bedrock setup
+```
+
+See [chore/README.md](chore/README.md) for complete documentation.
+
+## Shell Scripts (Legacy)
 
 ## Script Naming Convention
 
@@ -81,7 +116,55 @@ Scripts follow a consistent naming pattern to indicate their purpose:
 
 ## Common Workflows
 
-### Initial Setup
+### Using Chore CLI (Recommended)
+
+#### Initial Setup
+
+```bash
+cd infrastructure
+pip install -r chore/requirements.txt
+
+# Deploy backend
+python -m chore deploy backend config
+
+# Add your IP to whitelist
+python -m chore ip add-current
+
+# Deploy frontend
+python -m chore deploy frontend
+
+# Set up Bedrock Agent (optional)
+python -m chore bedrock setup
+```
+
+#### Interactive Mode
+
+```bash
+python -m chore --interactive
+```
+
+Navigate through menus to access all functionality with guided prompts.
+
+#### Updating Agent Instructions
+
+```bash
+# Edit personas/combined_agent_instruction.txt
+python -m chore bedrock update
+```
+
+#### Troubleshooting
+
+```bash
+python -m chore diagnose api
+python -m chore diagnose authorizer
+python -m chore diagnose bedrock
+```
+
+### Using Shell Scripts (Legacy)
+
+The original shell scripts are still available for backward compatibility:
+
+#### Initial Setup
 
 1. Deploy the main application:
    ```bash
@@ -95,14 +178,14 @@ Scripts follow a consistent naming pattern to indicate their purpose:
    ./setup-mcp-action-groups.sh
    ```
 
-### Updating Agent Instructions
+#### Updating Agent Instructions
 
 ```bash
 # Edit personas/combined_agent_instruction.txt
 ./update-bedrock-agent.sh
 ```
 
-### Troubleshooting
+#### Troubleshooting
 
 ```bash
 # Diagnose API Gateway authorizer issues
@@ -122,6 +205,7 @@ Key environment variables used by scripts:
 
 ## Related Documentation
 
+- [Chore CLI Documentation](chore/README.md) - Complete guide to the Python CLI tool
 - [System Administrator Guide](../doc/Sysadminguide.md) - Comprehensive deployment guide
 - [Network Security](../doc/NETWORK_SECURITY.md) - IP whitelisting configuration
 - [Environment Variables](../doc/ENVIRONMENT_VARIABLES.md) - Configuration reference

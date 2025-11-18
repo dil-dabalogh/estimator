@@ -14,24 +14,11 @@ app = typer.Typer(
 console = Console()
 
 
-@app.callback()
-def main(
-    interactive: bool = typer.Option(
-        False,
-        "--interactive",
-        "-i",
-        help="Launch interactive menu mode",
-    ),
-):
-    """
-    Chore CLI - Infrastructure management tool for Estimation Tool.
-    
-    Use --interactive flag to launch the interactive menu, or use commands directly.
-    """
-    if interactive:
-        from chore.interactive import run_interactive_mode
-        run_interactive_mode()
-        raise typer.Exit()
+@app.command("interactive")
+def interactive_mode():
+    """Launch interactive menu mode."""
+    from chore.interactive import run_interactive_mode
+    run_interactive_mode()
 
 
 deploy_app = typer.Typer(

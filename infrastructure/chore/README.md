@@ -71,9 +71,7 @@ python -m chore bedrock permissions
 Launch the interactive TUI menu:
 
 ```bash
-python -m chore --interactive
-# or
-python -m chore -i
+python -m chore interactive
 ```
 
 The interactive mode provides a menu-driven interface for all commands with guided prompts for parameters.

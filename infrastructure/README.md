@@ -12,7 +12,7 @@ A modern Python CLI/TUI tool that provides a unified interface for all infrastru
 cd infrastructure
 pip install -r chore/requirements.txt
 python -m chore --help
-python -m chore --interactive  # Launch interactive menu
+python -m chore interactive  # Launch interactive menu
 ```
 
 ### Example Commands
@@ -140,7 +140,7 @@ python -m chore bedrock setup
 #### Interactive Mode
 
 ```bash
-python -m chore --interactive
+python -m chore interactive
 ```
 
 Navigate through menus to access all functionality with guided prompts.

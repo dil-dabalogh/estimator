@@ -22,7 +22,6 @@ dependencies = [
 [project.scripts]
 chore = "chore.cli:main"
 
-[tool.setuptools.packages.find]
-where = ["."]
-include = ["chore*"]
+[tool.setuptools]
+packages = ["chore", "chore.commands", "chore.core", "chore.tests"]
 

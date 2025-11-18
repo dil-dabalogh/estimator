@@ -37,5 +37,12 @@ dependencies = [
 chore = "chore.cli:main"
 
 [tool.setuptools]
-packages = ["chore", "chore.commands", "chore.core", "chore.tests"]
+py-modules = []
+
+[tool.setuptools.package-dir]
+"" = "."
+
+[tool.setuptools.packages.find]
+where = ["."]
+namespaces = false
 

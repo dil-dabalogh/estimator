@@ -1,5 +1,22 @@
 """Main CLI application using Typer."""
 
+import os
+import sys
+
+# Disable rich formatting in Typer for Python 3.14 compatibility
+os.environ["_TYPER_STANDARD_TRACEBACK"] = "1"
+
+# Monkey patch to disable rich help formatting
+import typer.core
+_original_typer_init = typer.core.TyperGroup.__init__
+
+def _patched_typer_init(self, *args, **kwargs):
+    # Force rich_help_panel to None to disable rich formatting
+    kwargs.pop('rich_help_panel', None)
+    return _original_typer_init(self, *args, **kwargs)
+
+typer.core.TyperGroup.__init__ = _patched_typer_init
+
 import typer
 from rich.console import Console
 
@@ -8,7 +25,7 @@ app = typer.Typer(
     help="Infrastructure management tool for Estimation Tool",
     no_args_is_help=True,
     add_completion=False,
-    rich_markup_mode=None,  # Disable rich formatting to avoid Python 3.14 compatibility issues
+    pretty_exceptions_enable=False,  # Disable rich exceptions
 )
 
 console = Console()

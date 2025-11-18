@@ -5,7 +5,12 @@
     "dev:backend": "cd backend && uvicorn app:app --reload --host 0.0.0.0 --port 8000",
     "dev:frontend": "cd frontend && npm run dev",
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
-    "build:frontend": "cd frontend && npm run build"
+    "install:frontend": "cd frontend && npm install",
+    "install:backend": "python3 -m venv .venv && . .venv/bin/activate && pip install -r backend/requirements.txt",
+    "install": "npm run install:frontend && npm run install:backend",
+    "build:frontend": "cd frontend && npm install && npm run build",
+    "build:backend": "python3 -m venv .venv && . .venv/bin/activate && pip install -r backend/requirements.txt",
+    "build": "npm run build:frontend && npm run build:backend"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"

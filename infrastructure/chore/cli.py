@@ -6,16 +6,19 @@ import sys
 # Disable rich formatting in Typer for Python 3.14 compatibility
 os.environ["_TYPER_STANDARD_TRACEBACK"] = "1"
 
-# Monkey patch to disable rich help formatting
+# Monkey patch to disable rich help formatting completely
 import typer.core
-_original_typer_init = typer.core.TyperGroup.__init__
+import click
 
-def _patched_typer_init(self, *args, **kwargs):
-    # Force rich_help_panel to None to disable rich formatting
-    kwargs.pop('rich_help_panel', None)
-    return _original_typer_init(self, *args, **kwargs)
+# Override format_help to use plain Click formatting instead of rich
+_original_format_help = typer.core.TyperGroup.format_help
 
-typer.core.TyperGroup.__init__ = _patched_typer_init
+def _patched_format_help(self, ctx, formatter):
+    """Use plain click help instead of rich formatting."""
+    # Use the standard Click Group format_help
+    return click.Group.format_help(self, ctx, formatter)
+
+typer.core.TyperGroup.format_help = _patched_format_help
 
 import typer
 from rich.console import Console

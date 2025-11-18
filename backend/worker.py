@@ -7,7 +7,7 @@ from config import AppConfig
 from llm_service import OpenAIProvider, BedrockProvider
 from confluence_client import parse_confluence_config
 from estimation_service import generate_requirements, generate_ba_notes, generate_pert_sheet
-from utils import parse_man_weeks_from_pert, calculate_tshirt_size
+from utils import parse_man_weeks_from_pert, calculate_tshirt_size, parse_maturity_state_from_pert
 from websocket_manager import ws_manager
 
 
@@ -162,6 +162,13 @@ async def process_single_estimation(
             print(f"[{request.name}] Parsed {man_weeks} man-weeks, T-shirt size: {result.tshirt_size}")
         else:
             print(f"[{request.name}] Warning: Could not parse man-weeks from PERT estimation")
+        
+        maturity_state = parse_maturity_state_from_pert(pert_sheet)
+        if maturity_state:
+            result.maturity_state = maturity_state
+            print(f"[{request.name}] Parsed maturity state: {result.maturity_state}")
+        else:
+            print(f"[{request.name}] Warning: Could not parse maturity state from PERT estimation")
         
         result.pert_available = True
         result.status = EstimationStatus.COMPLETED

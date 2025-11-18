@@ -1,6 +1,6 @@
 import re
 from typing import Optional, Dict
-from models import TShirtSize
+from models import TShirtSize, MaturityState
 
 
 def calculate_tshirt_size(man_weeks: float) -> TShirtSize:
@@ -90,6 +90,38 @@ def parse_man_weeks_from_pert(pert_markdown: str) -> Optional[float]:
                 return normalize_duration_to_weeks(value, unit)
             except (ValueError, IndexError):
                 continue
+    
+    return None
+
+
+def parse_maturity_state_from_pert(pert_markdown: str) -> Optional[MaturityState]:
+    """
+    Extract maturity state from PERT markdown.
+    
+    Searches for the maturity state declaration in the format:
+    **Maturity State**: READY_FOR_DEV|IN_DISCOVERY|EARLY_DRAFT
+    
+    Args:
+        pert_markdown: The PERT estimation markdown document
+    
+    Returns:
+        MaturityState enum value, or None if not found
+    """
+    # Pattern to match: **Maturity State**: <STATE>
+    pattern = r'\*\*Maturity\s+State\*\*\s*:\s*(READY_FOR_DEV|IN_DISCOVERY|EARLY_DRAFT)'
+    
+    match = re.search(pattern, pert_markdown, re.IGNORECASE)
+    if match:
+        state_str = match.group(1).upper()
+        try:
+            if state_str == "READY_FOR_DEV":
+                return MaturityState.READY_FOR_DEV
+            elif state_str == "IN_DISCOVERY":
+                return MaturityState.IN_DISCOVERY
+            elif state_str == "EARLY_DRAFT":
+                return MaturityState.EARLY_DRAFT
+        except (ValueError, KeyError):
+            pass
     
     return None
 

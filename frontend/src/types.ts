@@ -23,12 +23,15 @@ export type EstimationStatus =
 
 export type TShirtSize = "XS" | "S" | "M" | "L" | "XL" | "XXL"
 
+export type MaturityState = "ready_for_dev" | "in_discovery" | "early_draft"
+
 export interface EstimationResult {
   name: string
   status: EstimationStatus
   progress?: string
   tshirt_size?: TShirtSize
   man_weeks?: number
+  maturity_state?: MaturityState
   error?: string
   requirements_available: boolean
   ba_notes_available: boolean

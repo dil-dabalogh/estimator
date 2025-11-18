@@ -22,6 +22,12 @@ class TShirtSize(str, Enum):
     XXL = "XXL"
 
 
+class MaturityState(str, Enum):
+    READY_FOR_DEV = "ready_for_dev"
+    IN_DISCOVERY = "in_discovery"
+    EARLY_DRAFT = "early_draft"
+
+
 class EstimationRequest(BaseModel):
     url: str = Field(..., description="Confluence or Jira URL")
     name: str = Field(..., min_length=1, description="Unique name for this estimation")
@@ -42,6 +48,7 @@ class EstimationResult(BaseModel):
     progress: Optional[str] = None
     tshirt_size: Optional[TShirtSize] = None
     man_weeks: Optional[float] = None
+    maturity_state: Optional[MaturityState] = None
     error: Optional[str] = None
     requirements_available: bool = False
     ba_notes_available: bool = False

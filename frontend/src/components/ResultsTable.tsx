@@ -3,7 +3,8 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import type { EstimationResult, TShirtSize, ConfluenceExportRequest, ConfluenceExportResponse } from "@/types"
+import { Legend } from "@/components/Legend"
+import type { EstimationResult, TShirtSize, MaturityState, ConfluenceExportRequest, ConfluenceExportResponse } from "@/types"
 import { API_BASE_URL } from "@/config"
 import { useState, useEffect } from "react"
 import axios from "axios"
@@ -21,6 +22,21 @@ const tshirtColors: Record<TShirtSize, string> = {
   L: "bg-orange-500",
   XL: "bg-red-500",
   XXL: "bg-purple-500"
+}
+
+const maturityStateConfig: Record<MaturityState, { label: string; color: string }> = {
+  ready_for_dev: {
+    label: "Ready for Development",
+    color: "bg-green-600"
+  },
+  in_discovery: {
+    label: "In Discovery",
+    color: "bg-yellow-600"
+  },
+  early_draft: {
+    label: "Early Draft",
+    color: "bg-orange-600"
+  }
 }
 
 const downloadFile = async (sessionId: string, name: string, type: "requirements" | "ba-notes" | "pert") => {
@@ -134,16 +150,18 @@ export function ResultsTable({ results, sessionId, parentPageUrl }: ResultsTable
   if (results.length === 0) return null
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Estimation Results</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <Table>
+    <>
+      <Card>
+        <CardHeader>
+          <CardTitle>Estimation Results</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Name</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead>Maturity</TableHead>
               <TableHead>T-shirt Size</TableHead>
               <TableHead>Man-weeks</TableHead>
               <TableHead>Requirements</TableHead>
@@ -171,6 +189,13 @@ export function ResultsTable({ results, sessionId, parentPageUrl }: ResultsTable
                     )}
                     <span className="text-sm">{result.progress || result.status}</span>
                   </div>
+                </TableCell>
+                <TableCell>
+                  {result.maturity_state && (
+                    <Badge className={maturityStateConfig[result.maturity_state].color}>
+                      {maturityStateConfig[result.maturity_state].label}
+                    </Badge>
+                  )}
                 </TableCell>
                 <TableCell>
                   {result.tshirt_size && (
@@ -266,8 +291,10 @@ export function ResultsTable({ results, sessionId, parentPageUrl }: ResultsTable
             ))}
           </div>
         )}
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+      <Legend />
+    </>
   )
 }
 

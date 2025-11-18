@@ -37,8 +37,8 @@ dependencies = [
 chore = "chore.cli:main"
 
 [tool.setuptools]
-packages = ["chore", "chore.commands", "chore.core", "chore.tests"]
+packages = ["chore", "chore.commands", "chore.core"]
 
 [tool.setuptools.package-dir]
-chore = "."
+"" = "src"
 

@@ -8,31 +8,31 @@ Chore CLI provides a unified interface for deploying, managing, and diagnosing t
 
 ## Installation
 
-1. Install dependencies:
+### Option 1: Install as a package (Recommended)
+
+Install the chore tool so you can run it directly:
 
 ```bash
 cd infrastructure/chore
-pip install -r requirements.txt
+pip install -e .
 ```
 
-2. Run the tool:
+Now you can run:
+
+```bash
+chore --help
+chore deploy backend config
+chore ip add-current
+```
+
+### Option 2: Run as a module
+
+If you prefer not to install, you can run it as a Python module:
 
 ```bash
 cd infrastructure
+pip install -r chore/requirements.txt
 python -m chore --help
-```
-
-For convenience, you can create an alias:
-
-```bash
-alias chore='python -m chore'
-```
-
-Or install in development mode:
-
-```bash
-cd infrastructure
-pip install -e chore/
 ```
 
 ## Usage
@@ -43,27 +43,27 @@ Execute commands directly from the command line:
 
 ```bash
 # Deploy commands
-python -m chore deploy backend config
-python -m chore deploy backend guided
-python -m chore deploy frontend
+chore deploy backend config
+chore deploy backend guided
+chore deploy frontend
 
 # IP whitelist management
-python -m chore ip list
-python -m chore ip add-current
-python -m chore ip add 192.168.1.5
-python -m chore ip remove 192.168.1.5
-python -m chore ip remove-all
+chore ip list
+chore ip add-current
+chore ip add 192.168.1.5
+chore ip remove 192.168.1.5
+chore ip remove-all
 
 # Diagnostics
-python -m chore diagnose api
-python -m chore diagnose authorizer
-python -m chore diagnose bedrock
+chore diagnose api
+chore diagnose authorizer
+chore diagnose bedrock
 
 # Bedrock agent management
-python -m chore bedrock setup
-python -m chore bedrock update
-python -m chore bedrock test
-python -m chore bedrock permissions
+chore bedrock setup
+chore bedrock update
+chore bedrock test
+chore bedrock permissions
 ```
 
 ### Interactive Mode
@@ -71,7 +71,7 @@ python -m chore bedrock permissions
 Launch the interactive TUI menu:
 
 ```bash
-python -m chore interactive
+chore interactive
 ```
 
 The interactive mode provides a menu-driven interface for all commands with guided prompts for parameters.
@@ -92,7 +92,7 @@ Deploy the backend API using AWS SAM.
 
 **Example:**
 ```bash
-python -m chore deploy backend config --env dev
+chore deploy backend config --env dev
 ```
 
 #### `chore deploy frontend`
@@ -106,7 +106,7 @@ Deploy the frontend to S3 with optional IP filtering.
 
 **Example:**
 ```bash
-python -m chore deploy frontend --no-ip-filter
+chore deploy frontend --no-ip-filter
 ```
 
 ### IP Whitelist Commands
@@ -125,8 +125,8 @@ Add a specific IP address or CIDR range to the whitelist.
 
 **Example:**
 ```bash
-python -m chore ip add 192.168.1.5
-python -m chore ip add 10.0.0.0/24
+chore ip add 192.168.1.5
+chore ip add 10.0.0.0/24
 ```
 
 #### `chore ip remove <IP|CIDR>`
@@ -135,7 +135,7 @@ Remove a specific IP address or CIDR range from the whitelist.
 
 **Example:**
 ```bash
-python -m chore ip remove 192.168.1.5
+chore ip remove 192.168.1.5
 ```
 
 #### `chore ip remove-all`
@@ -181,7 +181,7 @@ Create a new Bedrock Agent with personas from `personas/combined_agent_instructi
 
 **Example:**
 ```bash
-python -m chore bedrock setup --name my-agent
+chore bedrock setup --name my-agent
 ```
 
 #### `chore bedrock update`
@@ -206,7 +206,7 @@ Test Bedrock Agent invocation with a sample prompt.
 
 **Example:**
 ```bash
-python -m chore bedrock test --prompt "Estimate a REST API project"
+chore bedrock test --prompt "Estimate a REST API project"
 ```
 
 #### `chore bedrock setup-mcp`
@@ -257,8 +257,8 @@ infrastructure/chore/
 Run basic validation:
 
 ```bash
-python -m chore --help
-python -m chore deploy --help
+chore --help
+chore deploy --help
 ```
 
 ## Migration from Shell Scripts

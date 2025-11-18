@@ -80,6 +80,11 @@ app.add_typer(bedrock_app, name="bedrock")
 app.add_typer(ip_app, name="ip")
 
 
-if __name__ == "__main__":
+def main():
+    """Main entry point for the CLI."""
     app()
+
+
+if __name__ == "__main__":
+    main()
 

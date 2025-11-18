@@ -9,28 +9,28 @@ A modern Python CLI/TUI tool that provides a unified interface for all infrastru
 ### Quick Start
 
 ```bash
-cd infrastructure
-pip install -r chore/requirements.txt
-python -m chore --help
-python -m chore interactive  # Launch interactive menu
+cd infrastructure/chore
+pip install -e .
+chore --help
+chore interactive  # Launch interactive menu
 ```
 
 ### Example Commands
 
 ```bash
 # Deploy
-python -m chore deploy backend config
-python -m chore deploy frontend
+chore deploy backend config
+chore deploy frontend
 
 # IP Management
-python -m chore ip list
-python -m chore ip add-current
+chore ip list
+chore ip add-current
 
 # Diagnostics
-python -m chore diagnose api
+chore diagnose api
 
 # Bedrock Agent
-python -m chore bedrock setup
+chore bedrock setup
 ```
 
 See [chore/README.md](chore/README.md) for complete documentation.
@@ -121,26 +121,26 @@ Scripts follow a consistent naming pattern to indicate their purpose:
 #### Initial Setup
 
 ```bash
-cd infrastructure
-pip install -r chore/requirements.txt
+cd infrastructure/chore
+pip install -e .
 
 # Deploy backend
-python -m chore deploy backend config
+chore deploy backend config
 
 # Add your IP to whitelist
-python -m chore ip add-current
+chore ip add-current
 
 # Deploy frontend
-python -m chore deploy frontend
+chore deploy frontend
 
 # Set up Bedrock Agent (optional)
-python -m chore bedrock setup
+chore bedrock setup
 ```
 
 #### Interactive Mode
 
 ```bash
-python -m chore interactive
+chore interactive
 ```
 
 Navigate through menus to access all functionality with guided prompts.
@@ -149,15 +149,15 @@ Navigate through menus to access all functionality with guided prompts.
 
 ```bash
 # Edit personas/combined_agent_instruction.txt
-python -m chore bedrock update
+chore bedrock update
 ```
 
 #### Troubleshooting
 
 ```bash
-python -m chore diagnose api
-python -m chore diagnose authorizer
-python -m chore diagnose bedrock
+chore diagnose api
+chore diagnose authorizer
+chore diagnose bedrock
 ```
 
 ### Using Shell Scripts (Legacy)

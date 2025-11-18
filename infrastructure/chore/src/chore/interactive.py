@@ -59,14 +59,14 @@ def show_deploy_menu():
     if choice == "Deploy Backend (config mode)":
         from chore.commands.deploy import deploy_backend
         try:
-            deploy_backend("config")
+            deploy_backend("config", env="dev")
         except Exception as e:
             error(f"Deployment failed: {e}")
     
     elif choice == "Deploy Backend (guided mode)":
         from chore.commands.deploy import deploy_backend
         try:
-            deploy_backend("guided")
+            deploy_backend("guided", env="dev")
         except Exception as e:
             error(f"Deployment failed: {e}")
     

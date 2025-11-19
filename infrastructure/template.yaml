@@ -122,6 +122,7 @@ Resources:
       # Parameters (set during deployment) are mapped to Lambda environment variables here
       Environment:
         Variables:
+          DEPLOYMENT_VERSION: "2.0"  # Increment to force Lambda update with dependencies
           LLM_PROVIDER: !Ref LLMProvider              # From Parameter: LLMProvider
           OPENAI_API_KEY: !Ref OpenAIApiKey           # From Parameter: OpenAIApiKey
           OPENAI_MODEL: !Ref OpenAIModel              # From Parameter: OpenAIModel

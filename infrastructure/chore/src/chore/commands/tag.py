@@ -1,7 +1,8 @@
 """Tag management commands for AWS resources."""
 
 import typer
-from typing import Optional
+import questionary
+from typing import Optional, List, Dict, Any
 from chore.cli import tag_app
 from chore.core.console import console, success, error, warning, info, header, section
 from chore.core.config import get_config
@@ -57,6 +58,97 @@ def validate_tag(key: str, value: str) -> bool:
         return False
     
     return True
+
+
+def select_resources_interactive(
+    resources: List[Dict[str, Any]],
+    aws_client,
+    config,
+) -> List[str]:
+    """
+    Interactive selection of resources using questionary.
+    
+    Args:
+        resources: List of resource dictionaries
+        aws_client: AWS client instance
+        config: Configuration object
+    
+    Returns:
+        List of selected resource ARNs
+    """
+    # Filter to taggable resources only
+    taggable_resources = [
+        r for r in resources
+        if aws_client.is_taggable_resource(r["ResourceType"])
+    ]
+    
+    if not taggable_resources:
+        warning("No taggable resources found in stack")
+        return []
+    
+    # Build choices for questionary
+    choices = []
+    resource_map = {}
+    
+    for resource in taggable_resources:
+        logical_id = resource["LogicalResourceId"]
+        resource_type = resource["ResourceType"]
+        physical_id = resource.get("PhysicalResourceId", "N/A")
+        
+        # Truncate long physical IDs
+        display_physical_id = physical_id
+        if len(display_physical_id) > 50:
+            display_physical_id = display_physical_id[:47] + "..."
+        
+        # Create display name
+        display_name = f"{logical_id} ({resource_type})"
+        
+        choices.append({
+            "name": display_name,
+            "value": logical_id,
+        })
+        
+        resource_map[logical_id] = resource
+    
+    console.print()
+    selected_ids = questionary.checkbox(
+        "Select resources to tag:",
+        choices=choices,
+    ).ask()
+    
+    if selected_ids is None:
+        # User cancelled (Ctrl+C)
+        return []
+    
+    if not selected_ids:
+        return []
+    
+    # Convert logical IDs to ARNs
+    arns = []
+    for logical_id in selected_ids:
+        resource = resource_map[logical_id]
+        physical_id = resource.get("PhysicalResourceId", "")
+        resource_type = resource.get("ResourceType", "")
+        
+        # Construct ARN if needed
+        if not physical_id:
+            continue
+        
+        if not physical_id.startswith("arn:"):
+            if resource_type.startswith("AWS::Lambda::"):
+                arn = f"arn:aws:lambda:{config.region}:{aws_client.get_account_id()}:function:{physical_id}"
+            elif resource_type.startswith("AWS::DynamoDB::"):
+                arn = f"arn:aws:dynamodb:{config.region}:{aws_client.get_account_id()}:table/{physical_id}"
+            elif resource_type.startswith("AWS::ApiGatewayV2::"):
+                arn = f"arn:aws:apigateway:{config.region}::/apis/{physical_id}"
+            else:
+                arn = physical_id
+        else:
+            arn = physical_id
+        
+        arns.append(arn)
+    
+    return arns
 
 
 @tag_app.command("list")
@@ -159,6 +251,12 @@ def add_tag(
         "-y",
         help="Skip confirmation prompt",
     ),
+    interactive: bool = typer.Option(
+        False,
+        "--interactive",
+        "-i",
+        help="Interactive mode: select resources to tag",
+    ),
 ):
     """
     Add a tag to stack resources.
@@ -168,6 +266,8 @@ def add_tag(
       chore tag add do-not-nuke=true                  # Tag all resources
       
       chore tag add Environment=production -r MyLambda  # Tag specific resource
+      
+      chore tag add do-not-nuke=true --interactive    # Interactive selection
     """
     header("Add Resource Tag")
     
@@ -194,7 +294,35 @@ def add_tag(
     info(f"Region: {config.region}")
     console.print()
     
-    if resource:
+    if interactive and resource:
+        error("Cannot use --interactive with --resource")
+        error("Use --interactive for selecting multiple resources, or --resource for a specific resource")
+        raise typer.Exit(1)
+    
+    if interactive:
+        section("Interactive resource selection")
+        
+        resources = aws_client.get_stack_resources(config.stack_name)
+        
+        if not resources:
+            warning("No resources found in stack")
+            return
+        
+        arns = select_resources_interactive(resources, aws_client, config)
+        
+        if not arns:
+            info("No resources selected. Aborted.")
+            return
+        
+        info(f"Selected {len(arns)} resource(s)")
+        console.print()
+        
+        if not yes:
+            if not typer.confirm(f"Apply tag '{key}={value}' to {len(arns)} selected resource(s)?"):
+                info("Aborted.")
+                return
+    
+    elif resource:
         section(f"Tagging specific resource: {resource}")
         
         # If resource is a logical ID, convert to ARN
@@ -289,6 +417,12 @@ def remove_tag(
         "-y",
         help="Skip confirmation prompt",
     ),
+    interactive: bool = typer.Option(
+        False,
+        "--interactive",
+        "-i",
+        help="Interactive mode: select resources to untag",
+    ),
 ):
     """
     Remove a tag from stack resources.
@@ -298,6 +432,8 @@ def remove_tag(
       chore tag remove do-not-nuke                  # Remove from all resources
       
       chore tag remove Environment -r MyLambda      # Remove from specific resource
+      
+      chore tag remove do-not-nuke --interactive    # Interactive selection
     """
     header("Remove Resource Tag")
     
@@ -317,7 +453,35 @@ def remove_tag(
     info(f"Region: {config.region}")
     console.print()
     
-    if resource:
+    if interactive and resource:
+        error("Cannot use --interactive with --resource")
+        error("Use --interactive for selecting multiple resources, or --resource for a specific resource")
+        raise typer.Exit(1)
+    
+    if interactive:
+        section("Interactive resource selection")
+        
+        resources = aws_client.get_stack_resources(config.stack_name)
+        
+        if not resources:
+            warning("No resources found in stack")
+            return
+        
+        arns = select_resources_interactive(resources, aws_client, config)
+        
+        if not arns:
+            info("No resources selected. Aborted.")
+            return
+        
+        info(f"Selected {len(arns)} resource(s)")
+        console.print()
+        
+        if not yes:
+            if not typer.confirm(f"Remove tag '{tag_key}' from {len(arns)} selected resource(s)?"):
+                info("Aborted.")
+                return
+    
+    elif resource:
         section(f"Removing tag from specific resource: {resource}")
         
         # If resource is a logical ID, convert to ARN

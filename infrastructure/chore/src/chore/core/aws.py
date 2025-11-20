@@ -300,6 +300,30 @@ class AWSClient:
             error(f"Failed to get stack resources: {e}")
             return []
     
+    def is_taggable_resource(self, resource_type: str) -> bool:
+        """
+        Check if a CloudFormation resource type supports tagging.
+        
+        Args:
+            resource_type: AWS resource type (e.g., "AWS::Lambda::Function")
+        
+        Returns:
+            True if the resource type supports tagging, False otherwise
+        """
+        # Non-taggable resource types
+        non_taggable = {
+            "AWS::Lambda::Permission",
+            "AWS::Lambda::EventInvokeConfig",
+            "AWS::ApiGatewayV2::ApiMapping",
+            "AWS::ApiGatewayV2::Integration",
+            "AWS::ApiGatewayV2::Route",
+            "AWS::ApiGatewayV2::Deployment",
+            "AWS::ApiGatewayV2::Stage",
+            "AWS::ApiGatewayV2::Authorizer",
+        }
+        
+        return resource_type not in non_taggable
+    
     def get_resource_arns(self, stack_name: str) -> List[str]:
         """
         Get ARNs of all taggable resources in a CloudFormation stack.
@@ -318,6 +342,10 @@ class AWSClient:
             resource_type = resource.get("ResourceType", "")
             
             if not physical_id:
+                continue
+            
+            # Skip non-taggable resource types
+            if not self.is_taggable_resource(resource_type):
                 continue
             
             # Construct ARN based on resource type

@@ -327,15 +327,25 @@ class AWSClient:
     def get_resource_arns(self, stack_name: str) -> List[str]:
         """
         Get ARNs of all taggable resources in a CloudFormation stack.
+        Includes the CloudFormation stack itself.
         
         Args:
             stack_name: Name of the CloudFormation stack
         
         Returns:
-            List of resource ARNs
+            List of resource ARNs (stack ARN is first in the list)
         """
-        resources = self.get_stack_resources(stack_name)
         arns = []
+        
+        # Add the CloudFormation stack itself
+        stack = self.get_stack(stack_name)
+        if stack:
+            stack_id = stack.get("StackId")
+            if stack_id:
+                arns.append(stack_id)
+        
+        # Add all resources within the stack
+        resources = self.get_stack_resources(stack_name)
         
         for resource in resources:
             physical_id = resource.get("PhysicalResourceId", "")

@@ -189,7 +189,7 @@ def show_tag_menu():
     if choice == "List all resources":
         from chore.commands.tag import list_tags
         try:
-            list_tags()
+            list_tags(resource=None, env="default")
         except Exception as e:
             error(f"Failed: {e}")
     
@@ -201,7 +201,7 @@ def show_tag_menu():
         if tag_str:
             from chore.commands.tag import add_tag
             try:
-                add_tag(tag=tag_str, yes=False)
+                add_tag(tag=tag_str, resource=None, env="default", yes=False)
             except Exception as e:
                 error(f"Failed: {e}")
     
@@ -283,7 +283,7 @@ def show_tag_menu():
         if tag_key:
             from chore.commands.tag import remove_tag
             try:
-                remove_tag(tag=tag_key, yes=False)
+                remove_tag(tag=tag_key, resource=None, env="default", yes=False)
             except Exception as e:
                 error(f"Failed: {e}")
     

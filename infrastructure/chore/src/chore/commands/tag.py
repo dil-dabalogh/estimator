@@ -251,12 +251,6 @@ def add_tag(
         "-y",
         help="Skip confirmation prompt",
     ),
-    interactive: bool = typer.Option(
-        False,
-        "--interactive",
-        "-i",
-        help="Interactive mode: select resources to tag",
-    ),
 ):
     """
     Add a tag to stack resources.
@@ -267,7 +261,7 @@ def add_tag(
       
       chore tag add Environment=production -r MyLambda  # Tag specific resource
       
-      chore tag add do-not-nuke=true --interactive    # Interactive selection
+      chore interactive                               # Interactive mode with resource selection
     """
     header("Add Resource Tag")
     
@@ -294,35 +288,7 @@ def add_tag(
     info(f"Region: {config.region}")
     console.print()
     
-    if interactive and resource:
-        error("Cannot use --interactive with --resource")
-        error("Use --interactive for selecting multiple resources, or --resource for a specific resource")
-        raise typer.Exit(1)
-    
-    if interactive:
-        section("Interactive resource selection")
-        
-        resources = aws_client.get_stack_resources(config.stack_name)
-        
-        if not resources:
-            warning("No resources found in stack")
-            return
-        
-        arns = select_resources_interactive(resources, aws_client, config)
-        
-        if not arns:
-            info("No resources selected. Aborted.")
-            return
-        
-        info(f"Selected {len(arns)} resource(s)")
-        console.print()
-        
-        if not yes:
-            if not typer.confirm(f"Apply tag '{key}={value}' to {len(arns)} selected resource(s)?"):
-                info("Aborted.")
-                return
-    
-    elif resource:
+    if resource:
         section(f"Tagging specific resource: {resource}")
         
         # If resource is a logical ID, convert to ARN
@@ -417,12 +383,6 @@ def remove_tag(
         "-y",
         help="Skip confirmation prompt",
     ),
-    interactive: bool = typer.Option(
-        False,
-        "--interactive",
-        "-i",
-        help="Interactive mode: select resources to untag",
-    ),
 ):
     """
     Remove a tag from stack resources.
@@ -433,7 +393,7 @@ def remove_tag(
       
       chore tag remove Environment -r MyLambda      # Remove from specific resource
       
-      chore tag remove do-not-nuke --interactive    # Interactive selection
+      chore interactive                             # Interactive mode with resource selection
     """
     header("Remove Resource Tag")
     
@@ -453,35 +413,7 @@ def remove_tag(
     info(f"Region: {config.region}")
     console.print()
     
-    if interactive and resource:
-        error("Cannot use --interactive with --resource")
-        error("Use --interactive for selecting multiple resources, or --resource for a specific resource")
-        raise typer.Exit(1)
-    
-    if interactive:
-        section("Interactive resource selection")
-        
-        resources = aws_client.get_stack_resources(config.stack_name)
-        
-        if not resources:
-            warning("No resources found in stack")
-            return
-        
-        arns = select_resources_interactive(resources, aws_client, config)
-        
-        if not arns:
-            info("No resources selected. Aborted.")
-            return
-        
-        info(f"Selected {len(arns)} resource(s)")
-        console.print()
-        
-        if not yes:
-            if not typer.confirm(f"Remove tag '{tag_key}' from {len(arns)} selected resource(s)?"):
-                info("Aborted.")
-                return
-    
-    elif resource:
+    if resource:
         section(f"Removing tag from specific resource: {resource}")
         
         # If resource is a logical ID, convert to ARN

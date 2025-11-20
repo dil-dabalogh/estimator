@@ -19,6 +19,7 @@ def run_interactive_mode():
             choices=[
                 "Deploy",
                 "IP Management",
+                "Tag Management",
                 "Diagnose",
                 "Bedrock Agent",
                 "Exit",
@@ -33,6 +34,8 @@ def run_interactive_mode():
             show_deploy_menu()
         elif choice == "IP Management":
             show_ip_menu()
+        elif choice == "Tag Management":
+            show_tag_menu()
         elif choice == "Diagnose":
             show_diagnose_menu()
         elif choice == "Bedrock Agent":
@@ -160,6 +163,183 @@ def show_ip_menu():
         from chore.commands.ip_whitelist import remove_all_ips
         try:
             remove_all_ips()
+        except Exception as e:
+            error(f"Failed: {e}")
+
+
+def show_tag_menu():
+    """Show tag management submenu."""
+    section("Tag Management")
+    
+    choice = questionary.select(
+        "Select tag management action:",
+        choices=[
+            "List all resources",
+            "Add tag to all resources",
+            "Add tag to selected resources",
+            "Remove tag from all resources",
+            "Remove tag from selected resources",
+            "Back to Main Menu",
+        ],
+    ).ask()
+    
+    if not choice or choice == "Back to Main Menu":
+        return
+    
+    if choice == "List all resources":
+        from chore.commands.tag import list_tags
+        try:
+            list_tags()
+        except Exception as e:
+            error(f"Failed: {e}")
+    
+    elif choice == "Add tag to all resources":
+        tag_str = questionary.text(
+            "Enter tag in format key=value (e.g., do-not-nuke=true):",
+        ).ask()
+        
+        if tag_str:
+            from chore.commands.tag import add_tag
+            try:
+                add_tag(tag=tag_str, yes=False)
+            except Exception as e:
+                error(f"Failed: {e}")
+    
+    elif choice == "Add tag to selected resources":
+        tag_str = questionary.text(
+            "Enter tag in format key=value (e.g., do-not-nuke=true):",
+        ).ask()
+        
+        if not tag_str:
+            return
+        
+        # Parse and validate tag
+        from chore.commands.tag import parse_tag, validate_tag
+        key, value = parse_tag(tag_str)
+        
+        if not key or not value:
+            error(f"Invalid tag format: {tag_str}")
+            error("Expected format: key=value")
+            return
+        
+        if not validate_tag(key, value):
+            error(f"Invalid tag: {key}={value}")
+            error("Key must be <= 128 chars, value must be <= 256 chars")
+            return
+        
+        # Get resources and show selection
+        from chore.core.config import get_config
+        from chore.core.aws import get_aws_client
+        from chore.commands.tag import select_resources_interactive
+        
+        try:
+            config = get_config("default")
+            aws_client = get_aws_client(config.region)
+            resources = aws_client.get_stack_resources(config.stack_name)
+            
+            if not resources:
+                error("No resources found in stack")
+                return
+            
+            arns = select_resources_interactive(resources, aws_client, config)
+            
+            if not arns:
+                info("No resources selected. Aborted.")
+                return
+            
+            # Confirm and apply tags
+            confirm = questionary.confirm(
+                f"Apply tag '{key}={value}' to {len(arns)} selected resource(s)?",
+                default=True,
+            ).ask()
+            
+            if not confirm:
+                info("Aborted.")
+                return
+            
+            info("Applying tags...")
+            result = aws_client.tag_resources(arns, {key: value})
+            
+            console.print()
+            if result["successful"] > 0:
+                success(f"Successfully tagged {result['successful']} resource(s)")
+            
+            if result["failed"] > 0:
+                error(f"Failed to tag {result['failed']} resource(s)")
+                if result.get("failed_resources"):
+                    console.print()
+                    console.print("[bold]Failed resources:[/bold]")
+                    for arn, error_msg in result["failed_resources"].items():
+                        console.print(f"  {arn}")
+                        console.print(f"    Error: {error_msg}")
+        except Exception as e:
+            error(f"Failed: {e}")
+    
+    elif choice == "Remove tag from all resources":
+        tag_key = questionary.text(
+            "Enter tag key to remove (e.g., do-not-nuke):",
+        ).ask()
+        
+        if tag_key:
+            from chore.commands.tag import remove_tag
+            try:
+                remove_tag(tag=tag_key, yes=False)
+            except Exception as e:
+                error(f"Failed: {e}")
+    
+    elif choice == "Remove tag from selected resources":
+        tag_key = questionary.text(
+            "Enter tag key to remove (e.g., do-not-nuke):",
+        ).ask()
+        
+        if not tag_key:
+            return
+        
+        # Get resources and show selection
+        from chore.core.config import get_config
+        from chore.core.aws import get_aws_client
+        from chore.commands.tag import select_resources_interactive
+        
+        try:
+            config = get_config("default")
+            aws_client = get_aws_client(config.region)
+            resources = aws_client.get_stack_resources(config.stack_name)
+            
+            if not resources:
+                error("No resources found in stack")
+                return
+            
+            arns = select_resources_interactive(resources, aws_client, config)
+            
+            if not arns:
+                info("No resources selected. Aborted.")
+                return
+            
+            # Confirm and remove tags
+            confirm = questionary.confirm(
+                f"Remove tag '{tag_key}' from {len(arns)} selected resource(s)?",
+                default=True,
+            ).ask()
+            
+            if not confirm:
+                info("Aborted.")
+                return
+            
+            info("Removing tags...")
+            result = aws_client.untag_resources(arns, [tag_key])
+            
+            console.print()
+            if result["successful"] > 0:
+                success(f"Successfully removed tag from {result['successful']} resource(s)")
+            
+            if result["failed"] > 0:
+                error(f"Failed to remove tag from {result['failed']} resource(s)")
+                if result.get("failed_resources"):
+                    console.print()
+                    console.print("[bold]Failed resources:[/bold]")
+                    for arn, error_msg in result["failed_resources"].items():
+                        console.print(f"  {arn}")
+                        console.print(f"    Error: {error_msg}")
         except Exception as e:
             error(f"Failed: {e}")
 

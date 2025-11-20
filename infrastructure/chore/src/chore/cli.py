@@ -66,18 +66,26 @@ ip_app = typer.Typer(
     no_args_is_help=True,
 )
 
+tag_app = typer.Typer(
+    name="tag",
+    help="Resource tagging management commands",
+    no_args_is_help=True,
+)
+
 # Import command modules to register them with the sub-apps
 # This must happen after the apps are created but before they're added to main app
 import chore.commands.deploy
 import chore.commands.diagnose
 import chore.commands.bedrock
 import chore.commands.ip_whitelist
+import chore.commands.tag
 
 # Add sub-apps to main app
 app.add_typer(deploy_app, name="deploy")
 app.add_typer(diagnose_app, name="diagnose")
 app.add_typer(bedrock_app, name="bedrock")
 app.add_typer(ip_app, name="ip")
+app.add_typer(tag_app, name="tag")
 
 
 def main():

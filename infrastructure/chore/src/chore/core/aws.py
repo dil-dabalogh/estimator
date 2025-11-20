@@ -21,6 +21,7 @@ class AWSClient:
         self.bedrock = boto3.client("bedrock-agent", region_name=region)
         self.iam = boto3.client("iam", region_name=region)
         self.sts = boto3.client("sts", region_name=region)
+        self.tagging = boto3.client("resourcegroupstaggingapi", region_name=region)
     
     # CloudFormation operations
     
@@ -268,6 +269,199 @@ class AWSClient:
     def get_account_id(self) -> str:
         """Get AWS account ID."""
         return self.sts.get_caller_identity()["Account"]
+    
+    # Resource tagging operations
+    
+    def get_stack_resources(self, stack_name: str) -> List[Dict[str, Any]]:
+        """
+        Get all resources in a CloudFormation stack.
+        
+        Args:
+            stack_name: Name of the CloudFormation stack
+        
+        Returns:
+            List of resource dictionaries with ResourceType, PhysicalResourceId, and LogicalResourceId
+        """
+        try:
+            resources = []
+            paginator = self.cfn.get_paginator("list_stack_resources")
+            
+            for page in paginator.paginate(StackName=stack_name):
+                for resource in page.get("StackResourceSummaries", []):
+                    resources.append({
+                        "LogicalResourceId": resource["LogicalResourceId"],
+                        "PhysicalResourceId": resource.get("PhysicalResourceId", ""),
+                        "ResourceType": resource["ResourceType"],
+                        "ResourceStatus": resource.get("ResourceStatus", ""),
+                    })
+            
+            return resources
+        except ClientError as e:
+            error(f"Failed to get stack resources: {e}")
+            return []
+    
+    def get_resource_arns(self, stack_name: str) -> List[str]:
+        """
+        Get ARNs of all taggable resources in a CloudFormation stack.
+        
+        Args:
+            stack_name: Name of the CloudFormation stack
+        
+        Returns:
+            List of resource ARNs
+        """
+        resources = self.get_stack_resources(stack_name)
+        arns = []
+        
+        for resource in resources:
+            physical_id = resource.get("PhysicalResourceId", "")
+            resource_type = resource.get("ResourceType", "")
+            
+            if not physical_id:
+                continue
+            
+            # Construct ARN based on resource type
+            if resource_type.startswith("AWS::Lambda::"):
+                if not physical_id.startswith("arn:"):
+                    arn = f"arn:aws:lambda:{self.region}:{self.get_account_id()}:function:{physical_id}"
+                else:
+                    arn = physical_id
+                arns.append(arn)
+            elif resource_type.startswith("AWS::DynamoDB::"):
+                if not physical_id.startswith("arn:"):
+                    arn = f"arn:aws:dynamodb:{self.region}:{self.get_account_id()}:table/{physical_id}"
+                else:
+                    arn = physical_id
+                arns.append(arn)
+            elif resource_type.startswith("AWS::ApiGatewayV2::"):
+                if resource_type == "AWS::ApiGatewayV2::Api":
+                    if not physical_id.startswith("arn:"):
+                        arn = f"arn:aws:apigateway:{self.region}::/apis/{physical_id}"
+                    else:
+                        arn = physical_id
+                    arns.append(arn)
+            elif resource_type.startswith("AWS::IAM::"):
+                if physical_id.startswith("arn:"):
+                    arns.append(physical_id)
+            elif physical_id.startswith("arn:"):
+                arns.append(physical_id)
+        
+        return arns
+    
+    def tag_resources(self, resource_arns: List[str], tags: Dict[str, str]) -> Dict[str, Any]:
+        """
+        Apply tags to AWS resources.
+        
+        Args:
+            resource_arns: List of resource ARNs to tag
+            tags: Dictionary of tag key-value pairs
+        
+        Returns:
+            Dictionary with 'successful' and 'failed' resource counts
+        """
+        if not resource_arns:
+            return {"successful": 0, "failed": 0, "failed_resources": {}}
+        
+        result = {"successful": 0, "failed": 0, "failed_resources": {}}
+        
+        # AWS Resource Groups Tagging API allows up to 20 resources per call
+        batch_size = 20
+        
+        for i in range(0, len(resource_arns), batch_size):
+            batch = resource_arns[i:i + batch_size]
+            
+            try:
+                response = self.tagging.tag_resources(
+                    ResourceARNList=batch,
+                    Tags=tags
+                )
+                
+                # Check for partial failures
+                failed_map = response.get("FailedResourcesMap", {})
+                
+                result["successful"] += len(batch) - len(failed_map)
+                result["failed"] += len(failed_map)
+                
+                for arn, error_info in failed_map.items():
+                    result["failed_resources"][arn] = error_info.get("ErrorMessage", "Unknown error")
+                    
+            except ClientError as e:
+                error(f"Failed to tag batch: {e}")
+                result["failed"] += len(batch)
+                for arn in batch:
+                    result["failed_resources"][arn] = str(e)
+        
+        return result
+    
+    def untag_resources(self, resource_arns: List[str], tag_keys: List[str]) -> Dict[str, Any]:
+        """
+        Remove tags from AWS resources.
+        
+        Args:
+            resource_arns: List of resource ARNs to untag
+            tag_keys: List of tag keys to remove
+        
+        Returns:
+            Dictionary with 'successful' and 'failed' resource counts
+        """
+        if not resource_arns:
+            return {"successful": 0, "failed": 0, "failed_resources": {}}
+        
+        result = {"successful": 0, "failed": 0, "failed_resources": {}}
+        
+        # AWS Resource Groups Tagging API allows up to 20 resources per call
+        batch_size = 20
+        
+        for i in range(0, len(resource_arns), batch_size):
+            batch = resource_arns[i:i + batch_size]
+            
+            try:
+                response = self.tagging.untag_resources(
+                    ResourceARNList=batch,
+                    TagKeys=tag_keys
+                )
+                
+                # Check for partial failures
+                failed_map = response.get("FailedResourcesMap", {})
+                
+                result["successful"] += len(batch) - len(failed_map)
+                result["failed"] += len(failed_map)
+                
+                for arn, error_info in failed_map.items():
+                    result["failed_resources"][arn] = error_info.get("ErrorMessage", "Unknown error")
+                    
+            except ClientError as e:
+                error(f"Failed to untag batch: {e}")
+                result["failed"] += len(batch)
+                for arn in batch:
+                    result["failed_resources"][arn] = str(e)
+        
+        return result
+    
+    def get_resource_tags(self, resource_arn: str) -> Dict[str, str]:
+        """
+        Get tags for a specific resource.
+        
+        Args:
+            resource_arn: ARN of the resource
+        
+        Returns:
+            Dictionary of tag key-value pairs
+        """
+        try:
+            response = self.tagging.get_resources(
+                ResourceARNList=[resource_arn]
+            )
+            
+            resources = response.get("ResourceTagMappingList", [])
+            if resources:
+                tags = resources[0].get("Tags", [])
+                return {tag["Key"]: tag["Value"] for tag in tags}
+            
+            return {}
+        except ClientError as e:
+            error(f"Failed to get tags for resource: {e}")
+            return {}
 
 
 def get_aws_client(region: str = "us-west-2") -> AWSClient:

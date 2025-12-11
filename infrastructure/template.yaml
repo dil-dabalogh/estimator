@@ -13,10 +13,25 @@ Globals:
 # Or via: sam deploy --parameter-overrides LLMProvider=bedrock BedrockRegion=us-west-2 ...
 # Or via: samconfig.toml configuration file
 Parameters:
-  AllowedIPRanges:
+  VpcId:
     Type: String
-    Description: "Comma-separated list of IP ranges allowed to access the API (CIDR notation, e.g., 203.0.113.0/24,198.51.100.0/24). Use 127.0.0.1/32 to deny all. Use manage-ip-whitelist.sh script to manage IPs."
-    Default: "127.0.0.1/32"
+    Description: "VPC ID where Diligent VPN is configured"
+  
+  VpcCidrBlock:
+    Type: String
+    Description: "VPC CIDR block for additional validation"
+  
+  ApiGatewaySubnetIds:
+    Type: CommaDelimitedList
+    Description: "Subnet IDs for API Gateway Interface endpoint (at least 2 in different AZs, comma-separated)"
+  
+  ApiGatewaySecurityGroupId:
+    Type: String
+    Description: "Security group ID for API Gateway Interface endpoint"
+  
+  S3RouteTableIds:
+    Type: CommaDelimitedList
+    Description: "Route table IDs for S3 Gateway endpoint (comma-separated)"
   
   LLMProvider:
     Type: String
@@ -64,18 +79,39 @@ Parameters:
     NoEcho: true
 
 Resources:
-  # Lambda Authorizer for IP-based access control
-  IPAuthorizerFunction:
-    Type: AWS::Serverless::Function
+  # API Gateway VPC Interface Endpoint
+  ApiGatewayVpcEndpoint:
+    Type: AWS::EC2::VPCEndpoint
     Properties:
-      CodeUri: ../backend
-      Handler: authorizer.handler
-      Runtime: python3.11
-      Timeout: 10
-      Environment:
-        Variables:
-          ALLOWED_IP_RANGES: !Ref AllowedIPRanges
-          DEPLOYMENT_VERSION: "1.3"  # Increment to force updates
+      VpcId: !Ref VpcId
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.execute-api"
+      VpcEndpointType: Interface
+      SubnetIds: !Ref ApiGatewaySubnetIds
+      SecurityGroupIds:
+        - !Ref ApiGatewaySecurityGroupId
+      PrivateDnsEnabled: true
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal: "*"
+            Action: "*"
+            Resource: "*"
+
+  # S3 VPC Gateway Endpoint
+  S3VpcEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !Ref VpcId
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.s3"
+      VpcEndpointType: Gateway
+      RouteTableIds: !Ref S3RouteTableIds
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal: "*"
+            Action:
+              - s3:*
+            Resource: "*"
 
   EstimationApi:
     Type: AWS::Serverless::HttpApi
@@ -89,6 +125,43 @@ Resources:
           - OPTIONS
         AllowHeaders:
           - "*"
+
+  # Custom resource to set API Gateway resource policy
+  ApiGatewayResourcePolicyFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend
+      Handler: resource_policy_handler.handler
+      Runtime: python3.11
+      Timeout: 60
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - apigatewayv2:PutResourcePolicy
+                - apigatewayv2:GetResourcePolicy
+                - apigatewayv2:DeleteResourcePolicy
+              Resource: !Sub "arn:aws:apigateway:${AWS::Region}::/apis/${EstimationApi}/*"
+
+  ApiGatewayResourcePolicyPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref ApiGatewayResourcePolicyFunction
+      Action: lambda:InvokeFunction
+      Principal: cloudformation.amazonaws.com
+      SourceArn: !Sub "arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/${AWS::StackName}/*"
+
+  ApiGatewayResourcePolicy:
+    Type: AWS::CloudFormation::CustomResource
+    DependsOn:
+      - EstimationApi
+      - ApiGatewayVpcEndpoint
+      - ApiGatewayResourcePolicyPermission
+    Properties:
+      ServiceToken: !GetAtt ApiGatewayResourcePolicyFunction.Arn
+      ApiId: !Ref EstimationApi
+      VpcEndpointId: !Ref ApiGatewayVpcEndpoint
+      VpcCidrBlock: !Ref VpcCidrBlock
 
   EstimationFunction:
     Type: AWS::Serverless::Function
@@ -145,24 +218,6 @@ Resources:
       Principal: apigateway.amazonaws.com
       SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${EstimationApi}/*/*"
   
-  # Lambda permission for API Gateway to invoke the authorizer (HTTP API)
-  IPAuthorizerPermission:
-    Type: AWS::Lambda::Permission
-    Properties:
-      FunctionName: !Ref IPAuthorizerFunction
-      Action: lambda:InvokeFunction
-      Principal: apigateway.amazonaws.com
-      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${EstimationApi}/authorizers/*"
-  
-  # Lambda permission for WebSocket API to invoke the authorizer
-  WebSocketAuthorizerPermission:
-    Type: AWS::Lambda::Permission
-    Properties:
-      FunctionName: !Ref IPAuthorizerFunction
-      Action: lambda:InvokeFunction
-      Principal: apigateway.amazonaws.com
-      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi}/authorizers/*"
-  
   # Integration between API Gateway and Lambda
   EstimationIntegration:
     Type: AWS::ApiGatewayV2::Integration
@@ -172,29 +227,16 @@ Resources:
       IntegrationUri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${EstimationFunction.Arn}/invocations"
       PayloadFormatVersion: "2.0"
   
-  # Create the authorizer
-  IPAuthorizer:
-    Type: AWS::ApiGatewayV2::Authorizer
-    Properties:
-      ApiId: !Ref EstimationApi
-      AuthorizerType: REQUEST
-      AuthorizerUri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${IPAuthorizerFunction.Arn}/invocations"
-      AuthorizerPayloadFormatVersion: "2.0"
-      EnableSimpleResponses: true
-      Name: IPAuthorizer
-      AuthorizerResultTtlInSeconds: 0  # Disable caching - IP-based auth can't be cached without identity source
-  
-  # Create route with authorizer attached
+  # Create route without authorizer (using resource policy instead)
   EstimationRoute:
     Type: AWS::ApiGatewayV2::Route
     DependsOn:
-      - IPAuthorizer
       - EstimationIntegration
+      - ApiGatewayVpcEndpoint
     Properties:
       ApiId: !Ref EstimationApi
       RouteKey: "ANY /{proxy+}"
-      AuthorizationType: CUSTOM
-      AuthorizerId: !Ref IPAuthorizer
+      AuthorizationType: NONE
       Target: !Sub "integrations/${EstimationIntegration}"
 
   # DynamoDB table for WebSocket connections
@@ -231,17 +273,43 @@ Resources:
       Name: !Sub "${AWS::StackName}-websocket"
       ProtocolType: WEBSOCKET
       RouteSelectionExpression: "$request.body.action"
-  
-  # WebSocket Authorizer for IP filtering
-  WebSocketAuthorizer:
-    Type: AWS::ApiGatewayV2::Authorizer
+
+  # Custom resource to set WebSocket API resource policy
+  WebSocketApiResourcePolicyFunction:
+    Type: AWS::Serverless::Function
     Properties:
+      CodeUri: ../backend
+      Handler: resource_policy_handler.handler
+      Runtime: python3.11
+      Timeout: 60
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - apigatewayv2:PutResourcePolicy
+                - apigatewayv2:GetResourcePolicy
+                - apigatewayv2:DeleteResourcePolicy
+              Resource: !Sub "arn:aws:apigateway:${AWS::Region}::/apis/${WebSocketApi}/*"
+
+  WebSocketApiResourcePolicyPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref WebSocketApiResourcePolicyFunction
+      Action: lambda:InvokeFunction
+      Principal: cloudformation.amazonaws.com
+      SourceArn: !Sub "arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/${AWS::StackName}/*"
+
+  WebSocketApiResourcePolicy:
+    Type: AWS::CloudFormation::CustomResource
+    DependsOn:
+      - WebSocketApi
+      - ApiGatewayVpcEndpoint
+      - WebSocketApiResourcePolicyPermission
+    Properties:
+      ServiceToken: !GetAtt WebSocketApiResourcePolicyFunction.Arn
       ApiId: !Ref WebSocketApi
-      AuthorizerType: REQUEST
-      AuthorizerUri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${IPAuthorizerFunction.Arn}/invocations"
-      Name: WebSocketIPAuthorizer
-      IdentitySource:
-        - route.request.header.X-Forwarded-For
+      VpcEndpointId: !Ref ApiGatewayVpcEndpoint
+      VpcCidrBlock: !Ref VpcCidrBlock
 
   # WebSocket Connect Handler
   WebSocketConnectFunction:
@@ -274,12 +342,11 @@ Resources:
   WebSocketConnectRoute:
     Type: AWS::ApiGatewayV2::Route
     DependsOn:
-      - WebSocketAuthorizer
+      - ApiGatewayVpcEndpoint
     Properties:
       ApiId: !Ref WebSocketApi
       RouteKey: $connect
-      AuthorizationType: CUSTOM
-      AuthorizerId: !Ref WebSocketAuthorizer
+      AuthorizationType: NONE
       Target: !Sub "integrations/${WebSocketConnectIntegration}"
 
   # WebSocket Disconnect Handler
@@ -382,4 +449,12 @@ Outputs:
   WebSocketApiUrl:
     Description: WebSocket API endpoint URL
     Value: !Sub "wss://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/prod"
+  
+  ApiGatewayVpcEndpointId:
+    Description: API Gateway VPC Interface Endpoint ID
+    Value: !Ref ApiGatewayVpcEndpoint
+  
+  S3VpcEndpointId:
+    Description: S3 VPC Gateway Endpoint ID
+    Value: !Ref S3VpcEndpoint
 

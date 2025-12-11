@@ -190,8 +190,8 @@ if [ -n "$VPC_CIDR" ] && [ "$VPC_CIDR" != "None" ]; then
       "Action": "s3:GetObject",
       "Resource": "arn:aws:s3:::${BUCKET_NAME}/*",
       "Condition": {
-        "StringNotLike": {
-          "aws:SourceIp": "${VPC_CIDR}/*"
+        "NotIpAddress": {
+          "aws:SourceIp": "${VPC_CIDR}"
         }
       }
     },

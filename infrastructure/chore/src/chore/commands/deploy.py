@@ -327,8 +327,8 @@ def deploy_frontend(
             "Action": "s3:GetObject",
             "Resource": f"arn:aws:s3:::{bucket_name}/*",
             "Condition": {
-                "StringNotLike": {
-                    "aws:SourceIp": f"{vpc_cidr}/*"
+                "NotIpAddress": {
+                    "aws:SourceIp": vpc_cidr
                 }
             }
         })

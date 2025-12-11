@@ -62,8 +62,8 @@ def handler(event, context):
                         "Action": "execute-api:Invoke",
                         "Resource": f"arn:aws:execute-api:*:*:{api_id}/*/*",
                         "Condition": {
-                            "StringNotLike": {
-                                "aws:SourceIp": f"{vpc_cidr}/*"
+                            "NotIpAddress": {
+                                "aws:SourceIp": vpc_cidr
                             }
                         }
                     },

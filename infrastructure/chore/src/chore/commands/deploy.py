@@ -126,6 +126,7 @@ def deploy_backend(
             stack_name=config.stack_name,
             region=config.region,
             cwd=str(project_root),
+            parameter_overrides=config.parameter_overrides,
         ):
             error("Deployment failed")
             raise typer.Exit(1)

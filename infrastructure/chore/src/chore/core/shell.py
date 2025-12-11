@@ -1,7 +1,7 @@
 """Shell command execution utilities."""
 
 import subprocess
-from typing import Optional, List
+from typing import Optional, List, Dict
 from rich.live import Live
 from rich.console import Group
 from rich.panel import Panel
@@ -105,6 +105,7 @@ def run_sam_deploy(
     region: str,
     cwd: Optional[str] = None,
     guided: bool = False,
+    parameter_overrides: Optional[Dict[str, str]] = None,
 ) -> bool:
     """
     Run SAM deploy command.
@@ -116,6 +117,7 @@ def run_sam_deploy(
         region: AWS region
         cwd: Working directory
         guided: Whether to use guided mode
+        parameter_overrides: Optional dict of parameter overrides
     
     Returns:
         True if successful, False otherwise
@@ -140,6 +142,21 @@ def run_sam_deploy(
             "--no-confirm-changeset",
             "--region", region,
         ]
+        
+        # Explicitly pass parameter overrides if provided
+        if parameter_overrides:
+            param_list = []
+            for key, value in parameter_overrides.items():
+                # Handle empty values
+                if value == "":
+                    param_list.append(f"{key}=")
+                else:
+                    # Quote values that contain spaces or special characters
+                    if " " in str(value) or "," in str(value):
+                        param_list.append(f'{key}="{value}"')
+                    else:
+                        param_list.append(f"{key}={value}")
+            cmd.extend(["--parameter-overrides", " ".join(param_list)])
     
     exit_code, _, _ = run_command(cmd, cwd=cwd)
     return exit_code == 0

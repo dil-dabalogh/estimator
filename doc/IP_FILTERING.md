@@ -1,6 +1,16 @@
 # IP Filtering Guide
 
-This guide explains how IP filtering works in the Estimation Tool and how to manage the IP whitelist for secure access control.
+> **DEPRECATED**: This guide is deprecated. IP filtering has been replaced with VPC endpoint-based access control.
+> 
+> **Migration**: See `doc/VPC_ENDPOINT_ACCESS.md` for the new access control method.
+> 
+> The `AllowedIPRanges` parameter and `chore ip` commands are deprecated and will be removed in a future version.
+
+---
+
+# IP Filtering Guide (Deprecated)
+
+This guide explains how IP filtering **used to work** in the Estimation Tool. This method has been replaced with VPC endpoint-based access control.
 
 ## Overview
 

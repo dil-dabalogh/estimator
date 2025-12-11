@@ -2,66 +2,69 @@
 
 ## Overview
 
-By default, the Estimation Tool API is **publicly accessible from anywhere in the world**. This document explains how to restrict access to your company network or VPN.
+The Estimation Tool uses **VPC endpoint-based access control** to restrict access to the Diligent VPN network only. Both the frontend (S3) and backend (API Gateway) are completely inaccessible from the public internet.
 
-## Current Implementation: Lambda Authorizer for IP Whitelisting
+## Current Implementation: VPC Endpoint Access Control
 
-**Important**: HTTP API Gateway (API Gateway v2) does NOT support AWS WAF association. Instead, this application uses a **Lambda Authorizer** for IP-based access control.
+**Access Control Method**: VPC endpoints with resource policies
 
-## How It Works
+### How It Works
 
-1. **Lambda Authorizer Function**: A lightweight Lambda function that checks the request's source IP
-2. **IP Range Configuration**: Allowed IP ranges are set via the `AllowedIPRanges` parameter during deployment
-3. **Automatic Authorization**: API Gateway invokes the authorizer for every request
-4. **Allow/Deny Decision**: The authorizer returns `isAuthorized: true/false` based on IP check
-5. **Caching**: Authorization results are cached for 5 minutes to reduce Lambda invocations
+1. **VPC Endpoints**: Created automatically by CloudFormation
+   - API Gateway VPC Interface Endpoint
+   - S3 VPC Gateway Endpoint
 
-## Step 1: Find Your Company's Public IP Addresses
+2. **Resource Policies**: Restrict access to VPC endpoints only
+   - API Gateway: Resource policy denies all except from VPC endpoint
+   - S3: Bucket policy denies all except from VPC endpoint
 
-### Option A: Find Your Current IP
+3. **Public Access Block**: S3 bucket blocks all public access
 
-```bash
-# Your current public IP
-curl https://checkip.amazonaws.com
-```
+4. **Automatic Deployment**: Endpoints are created and configured during stack deployment
 
-### Option B: Get Your Company's IP Ranges
+## Step 1: Gather VPC Configuration
 
-Contact your IT/Network team to get:
-- Office public IP addresses or CIDR ranges
-- VPN exit IP addresses or CIDR ranges
+You need the following information from your VPC:
 
-**Examples:**
-- Single IP: `203.0.113.45/32`
-- IP Range: `203.0.113.0/24` (allows 203.0.113.0 - 203.0.113.255)
-- Multiple ranges: `203.0.113.0/24,198.51.100.0/24`
+1. **VPC ID**: The VPC where Diligent VPN is configured
+2. **VPC CIDR Block**: The CIDR block for the VPC (e.g., `10.0.0.0/16`)
+3. **Subnet IDs**: At least 2 subnets in different availability zones (for API Gateway endpoint)
+4. **Security Group ID**: Security group for the API Gateway endpoint
+5. **Route Table IDs**: All route tables in the VPC (for S3 Gateway endpoint)
 
-## Step 2: Deploy with IP Restrictions
+See `doc/VPC_ENDPOINT_PREREQUISITES.md` for detailed instructions on gathering this information.
 
-Deploy the API with your allowed IP ranges:
+## Step 2: Deploy with VPC Endpoint Configuration
+
+Deploy the API with VPC endpoint parameters:
 
 ```bash
 cd infrastructure
+chore deploy backend
+```
+
+Or using SAM directly:
+
+```bash
 sam build --use-container
 sam deploy --guided
 ```
 
-When prompted for `AllowedIPRanges`:
+When prompted, provide:
+- `VpcId`: Your VPC ID
+- `VpcCidrBlock`: Your VPC CIDR block
+- `ApiGatewaySubnetIds`: Comma-separated subnet IDs
+- `ApiGatewaySecurityGroupId`: Security group ID
+- `S3RouteTableIds`: Comma-separated route table IDs
 
-**Examples:**
+**Example:**
 
 ```bash
-# Single IP (your current VPN IP)
-Parameter AllowedIPRanges [0.0.0.0/0]: 62.216.248.197/32
-
-# Office network range
-Parameter AllowedIPRanges [0.0.0.0/0]: 203.0.113.0/24
-
-# Multiple ranges (office + VPN)
-Parameter AllowedIPRanges [0.0.0.0/0]: 203.0.113.0/24,198.51.100.0/24
-
-# Allow all (no restrictions - default)
-Parameter AllowedIPRanges [0.0.0.0/0]: (press Enter)
+Parameter VpcId []: vpc-0debf6fec89321668
+Parameter VpcCidrBlock []: 10.0.0.0/16
+Parameter ApiGatewaySubnetIds []: subnet-0d0461af8faa47862,subnet-00709cdde2bfc1cad
+Parameter ApiGatewaySecurityGroupId []: sg-0d767bd8c679a2c59
+Parameter S3RouteTableIds []: rtb-0d7b4aa83ad8d4a37,rtb-098de2a98588c76c3,rtb-02bf8cba75a7cb133,rtb-0ed6e958148479c62
 ```
 
 Or use `--parameter-overrides`:

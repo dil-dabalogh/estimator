@@ -161,11 +161,6 @@ def deploy_frontend(
         "--api-url",
         help="Override API URL (default: fetch from CloudFormation)",
     ),
-    no_ip_filter: bool = typer.Option(
-        False,
-        "--no-ip-filter",
-        help="Deploy without IP filtering (public access)",
-    ),
     bucket: Optional[str] = typer.Option(
         None,
         "--bucket",
@@ -279,73 +274,76 @@ def deploy_frontend(
     
     section("Step 4: Configuring bucket policy")
     
-    use_ip_filter = not no_ip_filter
+    info("Fetching S3 VPC endpoint ID from CloudFormation stack...")
+    s3_vpc_endpoint_id = aws_client.get_stack_output(stack_name, "S3VpcEndpointId")
     
-    if use_ip_filter:
-        info("Fetching IP whitelist from CloudFormation stack...")
-        allowed_ips = aws_client.get_stack_parameter(stack_name, "AllowedIPRanges")
-        
-        if not allowed_ips or allowed_ips == "127.0.0.1/32":
-            warning("IP whitelist is set to deny all (127.0.0.1/32)")
-            warning("Frontend will not be accessible. Use 'chore ip add-current' to add your IP.")
-            
-            if not typer.confirm("Continue anyway?"):
-                info("Deployment aborted.")
-                raise typer.Exit(0)
-        
-        if allowed_ips and allowed_ips != "127.0.0.1/32":
-            info("Applying IP-filtered bucket policy...")
-            info(f"Allowed IPs: {allowed_ips}")
-            
-            ip_list = [f'"{ip}"' for ip in allowed_ips.split(",")]
-            ip_json = "[" + ",".join(ip_list) + "]"
-            
-            policy = {
-                "Version": "2012-10-17",
-                "Statement": [{
-                    "Sid": "IPFilteredPublicRead",
-                    "Effect": "Allow",
-                    "Principal": "*",
-                    "Action": "s3:GetObject",
-                    "Resource": f"arn:aws:s3:::{bucket_name}/*",
-                    "Condition": {
-                        "IpAddress": {
-                            "aws:SourceIp": json.loads(ip_json)
-                        }
-                    }
-                }]
+    if not s3_vpc_endpoint_id:
+        error("Could not retrieve S3 VPC endpoint ID from stack")
+        error("Ensure the backend stack is deployed with VPC endpoints")
+        raise typer.Exit(1)
+    
+    info(f"S3 VPC Endpoint ID: {s3_vpc_endpoint_id}")
+    
+    vpc_cidr = aws_client.get_stack_parameter(stack_name, "VpcCidrBlock")
+    if not vpc_cidr:
+        warning("VPC CIDR not found, using endpoint-only policy")
+        vpc_cidr = None
+    
+    info("Applying VPC endpoint-based bucket policy...")
+    
+    policy_statements = [
+        {
+            "Sid": "DenyAllExceptVpcEndpoint",
+            "Effect": "Deny",
+            "Principal": "*",
+            "Action": "s3:GetObject",
+            "Resource": f"arn:aws:s3:::{bucket_name}/*",
+            "Condition": {
+                "StringNotEquals": {
+                    "aws:SourceVpce": s3_vpc_endpoint_id
+                }
             }
-        else:
-            policy = {
-                "Version": "2012-10-17",
-                "Statement": [{
-                    "Sid": "PublicReadGetObject",
-                    "Effect": "Allow",
-                    "Principal": "*",
-                    "Action": "s3:GetObject",
-                    "Resource": f"arn:aws:s3:::{bucket_name}/*"
-                }]
+        },
+        {
+            "Sid": "AllowVpcEndpointAccess",
+            "Effect": "Allow",
+            "Principal": "*",
+            "Action": "s3:GetObject",
+            "Resource": f"arn:aws:s3:::{bucket_name}/*",
+            "Condition": {
+                "StringEquals": {
+                    "aws:SourceVpce": s3_vpc_endpoint_id
+                }
             }
-    else:
-        info("Applying public access bucket policy (--no-ip-filter)...")
-        policy = {
-            "Version": "2012-10-17",
-            "Statement": [{
-                "Sid": "PublicReadGetObject",
-                "Effect": "Allow",
-                "Principal": "*",
-                "Action": "s3:GetObject",
-                "Resource": f"arn:aws:s3:::{bucket_name}/*"
-            }]
         }
+    ]
+    
+    if vpc_cidr:
+        policy_statements.insert(1, {
+            "Sid": "DenyNonVpcCidr",
+            "Effect": "Deny",
+            "Principal": "*",
+            "Action": "s3:GetObject",
+            "Resource": f"arn:aws:s3:::{bucket_name}/*",
+            "Condition": {
+                "StringNotLike": {
+                    "aws:SourceIp": f"{vpc_cidr}/*"
+                }
+            }
+        })
+    
+    policy = {
+        "Version": "2012-10-17",
+        "Statement": policy_statements
+    }
     
     aws_client.s3.put_public_access_block(
         Bucket=bucket_name,
         PublicAccessBlockConfiguration={
             "BlockPublicAcls": True,
             "IgnorePublicAcls": True,
-            "BlockPublicPolicy": False,
-            "RestrictPublicBuckets": False,
+            "BlockPublicPolicy": True,
+            "RestrictPublicBuckets": True,
         },
     )
     
@@ -362,16 +360,6 @@ def deploy_frontend(
     if websocket_url:
         console.print(f"[bold]WebSocket URL:[/bold] {websocket_url}")
     console.print()
-    
-    if use_ip_filter and allowed_ips and allowed_ips != "127.0.0.1/32":
-        info("IP Filtering: ENABLED")
-        info(f"Allowed IPs: {allowed_ips}")
-        console.print()
-        console.print("Note: Only these IP addresses can access the frontend.")
-        console.print("Use 'chore ip add-current' to add more IPs.")
-    elif use_ip_filter:
-        warning("IP Filtering: DENY ALL")
-        console.print("Use 'chore ip add-current' to add your IP before accessing the frontend.")
-    else:
-        warning("IP Filtering: DISABLED (Public Access)")
+    info("Access restricted to VPC endpoint only")
+    info(f"S3 VPC Endpoint: {s3_vpc_endpoint_id}")
 

@@ -20,20 +20,17 @@ Usage:
 Options:
   --api-url URL      Override API URL (default: fetch from CloudFormation)
   --bucket NAME      Override S3 bucket name (default: estimation-tool-frontend-ACCOUNT_ID)
-  --no-ip-filter     Deploy without IP filtering (public access)
   --help             Show this help message
 
 Examples:
-  $0                                                    # Deploy with IP filtering from stack
+  $0                                                    # Deploy with VPC endpoint access
   $0 --api-url https://api.example.com                  # Use custom API URL
-  $0 --no-ip-filter                                     # Deploy without IP restrictions
 
 EOF
     exit 1
 }
 
 API_URL=""
-USE_IP_FILTER=true
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -44,10 +41,6 @@ while [[ $# -gt 0 ]]; do
         --bucket)
             BUCKET_NAME="$2"
             shift 2
-            ;;
-        --no-ip-filter)
-            USE_IP_FILTER=false
-            shift
             ;;
         --help)
             show_usage
@@ -150,83 +143,103 @@ echo ""
 
 echo "Step 4: Configuring bucket policy..."
 
-if [ "$USE_IP_FILTER" = true ]; then
-    echo "Fetching IP whitelist from CloudFormation stack..."
-    ALLOWED_IPS=$(aws cloudformation describe-stacks \
-      --stack-name "$STACK_NAME" \
-      --region "$AWS_REGION" \
-      --query 'Stacks[0].Parameters[?ParameterKey==`AllowedIPRanges`].ParameterValue' \
-      --output text 2>&1)
-    
-    if [ $? -ne 0 ] || [ -z "$ALLOWED_IPS" ]; then
-        echo "WARNING: Could not retrieve IP whitelist from stack"
-        echo "Deploying with public access. Use manage-ip-whitelist.sh to configure IPs."
-        ALLOWED_IPS=""
-    fi
-    
-    if [ "$ALLOWED_IPS" = "127.0.0.1/32" ] || [ -z "$ALLOWED_IPS" ]; then
-        echo "WARNING: IP whitelist is set to deny all (127.0.0.1/32)"
-        echo "Frontend will not be accessible. Use manage-ip-whitelist.sh to add your IP."
-        echo ""
-        read -p "Continue anyway? (yes/no): " -r
-        if [[ ! $REPLY =~ ^[Yy][Ee][Ss]$ ]]; then
-            echo "Deployment aborted."
-            exit 0
-        fi
-    fi
-    
-    if [ -n "$ALLOWED_IPS" ] && [ "$ALLOWED_IPS" != "127.0.0.1/32" ]; then
-        echo "Applying IP-filtered bucket policy..."
-        echo "Allowed IPs: $ALLOWED_IPS"
-        
-        IFS=',' read -ra IP_ARRAY <<< "$ALLOWED_IPS"
-        IP_JSON=$(printf ',"%s"' "${IP_ARRAY[@]}")
-        IP_JSON="[${IP_JSON:1}]"
-        
-        cat > /tmp/bucket-policy.json <<EOF
-{
-  "Version": "2012-10-17",
-  "Statement": [{
-    "Sid": "IPFilteredPublicRead",
-    "Effect": "Allow",
-    "Principal": "*",
-    "Action": "s3:GetObject",
-    "Resource": "arn:aws:s3:::${BUCKET_NAME}/*",
-    "Condition": {
-      "IpAddress": {
-        "aws:SourceIp": ${IP_JSON}
-      }
-    }
-  }]
-}
-EOF
-    else
-        echo "Applying public access bucket policy (no IP filtering)..."
-        cat > /tmp/bucket-policy.json <<EOF
-{
-  "Version": "2012-10-17",
-  "Statement": [{
-    "Sid": "PublicReadGetObject",
-    "Effect": "Allow",
-    "Principal": "*",
-    "Action": "s3:GetObject",
-    "Resource": "arn:aws:s3:::${BUCKET_NAME}/*"
-  }]
-}
-EOF
-    fi
-else
-    echo "Applying public access bucket policy (--no-ip-filter)..."
+echo "Fetching S3 VPC endpoint ID from CloudFormation stack..."
+S3_VPC_ENDPOINT_ID=$(aws cloudformation describe-stacks \
+  --stack-name "$STACK_NAME" \
+  --region "$AWS_REGION" \
+  --query 'Stacks[0].Outputs[?OutputKey==`S3VpcEndpointId`].OutputValue' \
+  --output text 2>&1)
+
+if [ $? -ne 0 ] || [ -z "$S3_VPC_ENDPOINT_ID" ]; then
+    echo "ERROR: Could not retrieve S3 VPC endpoint ID from stack '$STACK_NAME'"
+    echo "Ensure the backend stack is deployed with VPC endpoints"
+    exit 1
+fi
+
+echo "S3 VPC Endpoint ID: $S3_VPC_ENDPOINT_ID"
+
+VPC_CIDR=$(aws cloudformation describe-stacks \
+  --stack-name "$STACK_NAME" \
+  --region "$AWS_REGION" \
+  --query 'Stacks[0].Parameters[?ParameterKey==`VpcCidrBlock`].ParameterValue' \
+  --output text 2>&1)
+
+echo "Applying VPC endpoint-based bucket policy..."
+
+if [ -n "$VPC_CIDR" ] && [ "$VPC_CIDR" != "None" ]; then
     cat > /tmp/bucket-policy.json <<EOF
 {
   "Version": "2012-10-17",
-  "Statement": [{
-    "Sid": "PublicReadGetObject",
-    "Effect": "Allow",
-    "Principal": "*",
-    "Action": "s3:GetObject",
-    "Resource": "arn:aws:s3:::${BUCKET_NAME}/*"
-  }]
+  "Statement": [
+    {
+      "Sid": "DenyAllExceptVpcEndpoint",
+      "Effect": "Deny",
+      "Principal": "*",
+      "Action": "s3:GetObject",
+      "Resource": "arn:aws:s3:::${BUCKET_NAME}/*",
+      "Condition": {
+        "StringNotEquals": {
+          "aws:SourceVpce": "${S3_VPC_ENDPOINT_ID}"
+        }
+      }
+    },
+    {
+      "Sid": "DenyNonVpcCidr",
+      "Effect": "Deny",
+      "Principal": "*",
+      "Action": "s3:GetObject",
+      "Resource": "arn:aws:s3:::${BUCKET_NAME}/*",
+      "Condition": {
+        "StringNotLike": {
+          "aws:SourceIp": "${VPC_CIDR}/*"
+        }
+      }
+    },
+    {
+      "Sid": "AllowVpcEndpointAccess",
+      "Effect": "Allow",
+      "Principal": "*",
+      "Action": "s3:GetObject",
+      "Resource": "arn:aws:s3:::${BUCKET_NAME}/*",
+      "Condition": {
+        "StringEquals": {
+          "aws:SourceVpce": "${S3_VPC_ENDPOINT_ID}"
+        }
+      }
+    }
+  ]
+}
+EOF
+else
+    cat > /tmp/bucket-policy.json <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "DenyAllExceptVpcEndpoint",
+      "Effect": "Deny",
+      "Principal": "*",
+      "Action": "s3:GetObject",
+      "Resource": "arn:aws:s3:::${BUCKET_NAME}/*",
+      "Condition": {
+        "StringNotEquals": {
+          "aws:SourceVpce": "${S3_VPC_ENDPOINT_ID}"
+        }
+      }
+    },
+    {
+      "Sid": "AllowVpcEndpointAccess",
+      "Effect": "Allow",
+      "Principal": "*",
+      "Action": "s3:GetObject",
+      "Resource": "arn:aws:s3:::${BUCKET_NAME}/*",
+      "Condition": {
+        "StringEquals": {
+          "aws:SourceVpce": "${S3_VPC_ENDPOINT_ID}"
+        }
+      }
+    }
+  ]
 }
 EOF
 fi
@@ -234,7 +247,7 @@ fi
 aws s3api put-public-access-block \
   --bucket "$BUCKET_NAME" \
   --public-access-block-configuration \
-    BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=false,RestrictPublicBuckets=false \
+    BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true \
   --region "$AWS_REGION"
 
 aws s3api put-bucket-policy \
@@ -259,23 +272,7 @@ if [ -n "$WEBSOCKET_URL" ]; then
     echo "WebSocket URL: $WEBSOCKET_URL"
 fi
 echo ""
-
-if [ "$USE_IP_FILTER" = true ] && [ -n "$ALLOWED_IPS" ] && [ "$ALLOWED_IPS" != "127.0.0.1/32" ]; then
-    echo "IP Filtering: ENABLED"
-    echo "Allowed IPs: $ALLOWED_IPS"
-    echo ""
-    echo "Note: Only these IP addresses can access the frontend."
-    echo "Use manage-ip-whitelist.sh to add more IPs."
-elif [ "$USE_IP_FILTER" = true ]; then
-    echo "IP Filtering: DENY ALL"
-    echo "Use manage-ip-whitelist.sh to add your IP before accessing the frontend."
-else
-    echo "IP Filtering: DISABLED (Public Access)"
-fi
-echo ""
-echo "To update IP whitelist (affects both API and frontend):"
-echo "  cd infrastructure"
-echo "  ./manage-ip-whitelist.sh add-current"
-echo "  ./deploy-frontend.sh  # Re-run to update bucket policy"
+echo "Access restricted to VPC endpoint only"
+echo "S3 VPC Endpoint: $S3_VPC_ENDPOINT_ID"
 echo ""
 

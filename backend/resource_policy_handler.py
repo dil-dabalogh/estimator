@@ -34,9 +34,19 @@ def handler(event, context):
     }
     """
     request_type = event['RequestType']
-    api_id = event['ResourceProperties']['ApiId']
-    vpc_endpoint_id = event['ResourceProperties']['VpcEndpointId']
-    vpc_cidr = event['ResourceProperties']['VpcCidrBlock']
+    resource_props = event.get('ResourceProperties', {})
+    api_id = resource_props.get('ApiId')
+    vpc_endpoint_id = resource_props.get('VpcEndpointId')
+    vpc_cidr = resource_props.get('VpcCidrBlock')
+    
+    if not api_id:
+        raise ValueError("ApiId is required in ResourceProperties")
+    
+    if not vpc_endpoint_id:
+        raise ValueError("VpcEndpointId is required in ResourceProperties. Ensure VPC endpoint is created or existing endpoint ID is provided.")
+    
+    if not vpc_cidr:
+        raise ValueError("VpcCidrBlock is required in ResourceProperties")
     
     physical_resource_id = f"{api_id}-resource-policy"
     
@@ -128,7 +138,7 @@ def send_response(event, context, response_status, response_data, reason=None):
         'PUT',
         event['ResponseURL'],
         body=json_response_body.encode('utf-8'),
-        headers={'Content-Type': '', 'Content-Length': str(len(json_response_body))}
+        headers={'Content-Type': 'application/json', 'Content-Length': str(len(json_response_body))}
     )
     
     return response

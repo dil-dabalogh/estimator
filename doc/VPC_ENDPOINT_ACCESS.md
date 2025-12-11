@@ -45,9 +45,20 @@ When deploying the stack, you must provide:
 
 ### Example Configuration
 
-```toml
-parameter_overrides = "VpcId=\"vpc-0debf6fec89321668\" VpcCidrBlock=\"10.0.0.0/16\" ApiGatewaySubnetIds=\"subnet-0d0461af8faa47862,subnet-00709cdde2bfc1cad\" ApiGatewaySecurityGroupId=\"sg-0d767bd8c679a2c59\" S3RouteTableIds=\"rtb-0d7b4aa83ad8d4a37,rtb-098de2a98588c76c3,rtb-02bf8cba75a7cb133,rtb-0ed6e958148479c62\" ..."
+Create `infrastructure/samconfig.toml` from the template:
+
+```bash
+cd infrastructure
+cp samconfig.toml.example samconfig.toml
 ```
+
+Then update the `parameter_overrides` with your actual values:
+
+```toml
+parameter_overrides = "VpcId=vpc-xxxxxxxxxxxxxxxxx VpcCidrBlock=10.0.0.0/16 ApiGatewaySubnetIds=subnet-xxxxxxxxxxxxxxxxx,subnet-yyyyyyyyyyyyyyyyy ApiGatewaySecurityGroupId=sg-xxxxxxxxxxxxxxxxx S3RouteTableIds=rtb-xxxxxxxxxxxxxxxxx,rtb-yyyyyyyyyyyyyyyyy,rtb-zzzzzzzzzzzzzzzzzz,rtb-wwwwwwwwwwwwwwwwww ..."
+```
+
+**Note**: The `samconfig.toml` file is in `.gitignore` and will not be committed to version control.
 
 ## Deployment
 

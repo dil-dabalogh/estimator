@@ -60,25 +60,31 @@ When prompted, provide:
 **Example:**
 
 ```bash
-Parameter VpcId []: vpc-0debf6fec89321668
+Parameter VpcId []: vpc-xxxxxxxxxxxxxxxxx
 Parameter VpcCidrBlock []: 10.0.0.0/16
-Parameter ApiGatewaySubnetIds []: subnet-0d0461af8faa47862,subnet-00709cdde2bfc1cad
-Parameter ApiGatewaySecurityGroupId []: sg-0d767bd8c679a2c59
-Parameter S3RouteTableIds []: rtb-0d7b4aa83ad8d4a37,rtb-098de2a98588c76c3,rtb-02bf8cba75a7cb133,rtb-0ed6e958148479c62
+Parameter ApiGatewaySubnetIds []: subnet-xxxxxxxxxxxxxxxxx,subnet-yyyyyyyyyyyyyyyyy
+Parameter ApiGatewaySecurityGroupId []: sg-xxxxxxxxxxxxxxxxx
+Parameter S3RouteTableIds []: rtb-xxxxxxxxxxxxxxxxx,rtb-yyyyyyyyyyyyyyyyy,rtb-zzzzzzzzzzzzzzzzzz,rtb-wwwwwwwwwwwwwwwwww
 ```
+
+**Note**: For easier deployment, create `infrastructure/samconfig.toml` from `samconfig.toml.example` with your actual values. This file is in `.gitignore` and will not be committed.
 
 Or use `--parameter-overrides`:
 
 ```bash
 sam deploy --parameter-overrides \
-  AllowedIPRanges="62.216.248.197/32" \
+  VpcId=vpc-xxxxxxxxxxxxxxxxx \
+  VpcCidrBlock=10.0.0.0/16 \
+  ApiGatewaySubnetIds=subnet-xxxxxxxxxxxxxxxxx,subnet-yyyyyyyyyyyyyyyyy \
+  ApiGatewaySecurityGroupId=sg-xxxxxxxxxxxxxxxxx \
+  S3RouteTableIds=rtb-xxxxxxxxxxxxxxxxx,rtb-yyyyyyyyyyyyyyyyy,rtb-zzzzzzzzzzzzzzzzzz,rtb-wwwwwwwwwwwwwwwwww \
   LLMProvider=bedrock \
   ...
 ```
 
-## Step 3: Verify IP Restrictions
+## Step 3: Verify VPC Endpoint Access
 
-### Test from Allowed IP
+### Test from VPN
 ```bash
 # Get your API URL
 API_URL=$(aws cloudformation describe-stacks \
@@ -86,204 +92,30 @@ API_URL=$(aws cloudformation describe-stacks \
   --query 'Stacks[0].Outputs[?OutputKey==`EstimationApiUrl`].OutputValue' \
   --output text)
 
-# Should succeed (200 OK)
+# Should succeed (200 OK) when connected to VPN
 curl $API_URL/health
 ```
 
-### Test from Different IP (outside allowed range)
+### Test from Public Internet (Should Fail)
 ```bash
 # Disconnect VPN or test from different network
-# Should be blocked (403 Forbidden with "Unauthorized" message)
+# Should be blocked (403 Forbidden)
 curl $API_URL/health
 ```
 
-## Step 4: Update IP Ranges Later
+## Step 4: Verify VPC Endpoint Configuration
 
-### Quick Method: Using IP Management Script (Recommended)
-
-```bash
-cd infrastructure
-
-# Add your current IP
-./manage-ip-whitelist.sh add-current
-
-# Add specific IP or range
-./manage-ip-whitelist.sh add 203.0.113.45
-
-# View current whitelist
-./manage-ip-whitelist.sh list
-
-# Remove all IPs (deny all)
-./manage-ip-whitelist.sh remove-all
-```
-
-See the [IP Filtering Guide](./IP_FILTERING.md) for detailed usage and examples.
-
-### Manual Method: CloudFormation Update
-
-To update allowed IP ranges manually:
-
-```bash
-cd infrastructure
-sam deploy --parameter-overrides \
-  AllowedIPRanges="NEW_IP_RANGES"
-```
-
-**Note**: The script method is preferred as it automatically handles all parameters and updates both backend and frontend.
-
-## Common Scenarios
-
-### Scenario 1: Office Network Only
-
-```bash
-sam deploy --parameter-overrides AllowedIPRanges="203.0.113.0/24"
-```
-
-### Scenario 2: Office + VPN
-
-```bash
-sam deploy --parameter-overrides AllowedIPRanges="203.0.113.0/24,198.51.100.0/24"
-```
-
-### Scenario 3: Multiple Offices
-
-```bash
-sam deploy --parameter-overrides AllowedIPRanges="203.0.113.0/24,198.51.100.0/24,192.0.2.0/24"
-```
-
-### Scenario 4: Just Your Current IP (Testing)
-
-```bash
-MY_IP=$(curl -s https://checkip.amazonaws.com)
-sam deploy --parameter-overrides AllowedIPRanges="$MY_IP/32"
-```
-
-## Monitoring Blocked Requests
-
-### View Authorizer Logs in CloudWatch
-
-Blocked requests are logged by the Lambda authorizer:
-
-```bash
-# Get authorizer function name
-AUTH_FUNCTION=$(aws cloudformation describe-stack-resources \
-  --stack-name estimation-tool-api \
-  --query 'StackResources[?LogicalResourceId==`IPAuthorizerFunction`].PhysicalResourceId' \
-  --output text)
-
-# View recent logs
-aws logs tail /aws/lambda/$AUTH_FUNCTION --since 1h
-
-# View blocked requests
-aws logs tail /aws/lambda/$AUTH_FUNCTION --since 1h --filter-pattern "Allowed: False"
-```
-
-### CloudWatch Logs Insights Query
-
-```sql
-fields @timestamp, @message
-| filter @message like /Source IP:/
-| parse @message "Source IP: *, Allowed: *" as sourceIp, allowed
-| stats count() by sourceIp, allowed
-| sort count desc
-```
-
-## Troubleshooting
-
-### Issue: "403 Forbidden" from Allowed IP
-
-**Causes:**
-1. IP range is incorrect (check CIDR notation)
-2. Your actual public IP differs from what you think
-3. NAT or proxy is changing your IP
-
-**Solution:**
-```bash
-# Check your actual public IP
-curl https://checkip.amazonaws.com
-
-# Add it to allowed ranges
-# Use /32 for single IP: 203.0.113.45/32
-```
-
-### Issue: Can't Access After Enabling WAF
-
-**Quick Fix - Temporarily Allow All:**
-```bash
-cd infrastructure
-sam deploy --parameter-overrides AllowedIPRanges="0.0.0.0/0"
-```
-
-Then find your correct IP and redeploy with proper ranges.
-
-### Issue: VPN Users Can't Access
-
-Your VPN might use dynamic IPs. Solutions:
-
-1. **Get VPN exit IP range** from IT team
-2. **Use wider CIDR range** (e.g., /24 instead of /32)
-3. **Add multiple VPN exit IPs** to the list
-
-## Cost Considerations
-
-**Lambda Authorizer Pricing (as of 2024):**
-- Lambda invocations: First 1M requests/month free, then $0.20 per 1M
-- Lambda duration: Minimal (< 10ms per authorization)
-- Authorization caching: Results cached for 5 minutes (reduces invocations)
-
-**Estimated monthly cost**: 
-- Low usage (1,000 requests): $0.00 (within free tier)
-- Moderate usage (100,000 requests): ~$0.02
-- High usage (1M requests): ~$0.20
-
-**Much cheaper than AWS WAF** (~$6-10/month)
-
-## Alternative Approaches (Not Implemented)
-
-### Option 1: AWS WAF + CloudFront
-- **Why not direct WAF**: HTTP APIs don't support WAF association
-- **CloudFront workaround**: Put CloudFront in front of API Gateway, attach WAF to CloudFront
-- Pros: Full WAF features, DDoS protection
-- Cons: Higher cost (~$6-10/month for WAF + CloudFront), more complex setup
-
-### Option 2: Convert to REST API + WAF
-- Convert from HTTP API (v2) to REST API (v1)
-- REST APIs support direct WAF association
-- Pros: Native WAF support
-- Cons: REST APIs are more expensive, require template changes
-
-### Option 3: VPC Endpoint (Private API)
-- Most secure
-- Only accessible within your VPC
-- Requires VPN or Direct Connect to access
-- More complex setup
-
-### Option 4: API Keys
-- Simple authentication
-- Not IP-based
-- Users need to include API key in requests
-- Less secure than IP whitelisting
-
-## Removing IP Restrictions
-
-To make the API publicly accessible again:
-
-```bash
-cd infrastructure
-sam deploy --parameter-overrides AllowedIPRanges="0.0.0.0/0"
-```
-
-This redeploys the authorizer with no IP restrictions (allows all IPs).
+After deployment, verify that VPC endpoints are created and configured correctly. See the [VPC Endpoint Access Guide](./VPC_ENDPOINT_ACCESS.md) for detailed verification steps.
 
 ## Security Best Practices
 
-1. ✅ **Use specific IP ranges**, not 0.0.0.0/0
-2. ✅ **Document your IP ranges** and keep them updated
-3. ✅ **Monitor authorizer logs** for blocked requests
-4. ✅ **Review access quarterly** and remove unused IPs
-5. ✅ **Use /32 for single IPs**, broader ranges only when needed
-6. ✅ **Test access** from both inside and outside allowed ranges
-7. ✅ **Keep backup access** (e.g., admin IP range separate from office)
+1. ✅ **Keep VPC configuration secure** - Never commit `samconfig.toml` to version control
+2. ✅ **Use VPC endpoints** - Ensures access only from VPN network
+3. ✅ **Monitor CloudWatch logs** for access issues
+4. ✅ **Verify endpoint state** - Ensure endpoints are in "available" state
+5. ✅ **Test access** from both VPN and public internet to verify restrictions
+6. ✅ **Document VPC configuration** - Keep track of VPC IDs, subnets, and security groups
+7. ✅ **Regular security reviews** - Review access patterns and endpoint configurations
 
 ## Related Documentation
 

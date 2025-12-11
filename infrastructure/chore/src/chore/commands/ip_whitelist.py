@@ -69,8 +69,16 @@ def get_current_ip() -> Optional[str]:
 
 @ip_app.command("list")
 def list_ips():
-    """Show current IP whitelist."""
-    header("Current IP Whitelist")
+    """
+    Show current IP whitelist.
+    
+    DEPRECATED: IP whitelisting has been replaced with VPC endpoint-based access control.
+    This command is kept for backward compatibility but will be removed in a future version.
+    """
+    warning("DEPRECATED: IP whitelisting has been replaced with VPC endpoint-based access control.")
+    warning("This command is deprecated and will be removed in a future version.")
+    console.print()
+    header("Current IP Whitelist (Deprecated)")
     
     config = get_config("default")
     aws_client = get_aws_client(config.region)
@@ -96,8 +104,17 @@ def list_ips():
 
 @ip_app.command("add-current")
 def add_current_ip():
-    """Add your current IP address to the whitelist."""
-    header("Add Current IP to Whitelist")
+    """
+    Add your current IP address to the whitelist.
+    
+    DEPRECATED: IP whitelisting has been replaced with VPC endpoint-based access control.
+    This command is kept for backward compatibility but will be removed in a future version.
+    """
+    warning("DEPRECATED: IP whitelisting has been replaced with VPC endpoint-based access control.")
+    warning("This command is deprecated and will be removed in a future version.")
+    warning("Access is now controlled via VPC endpoints configured in the CloudFormation stack.")
+    console.print()
+    header("Add Current IP to Whitelist (Deprecated)")
     
     info("Getting your current IP address...")
     current_ip = get_current_ip()
@@ -152,8 +169,17 @@ def add_current_ip():
 def add_ip(
     ip_or_cidr: str = typer.Argument(..., help="IP address or CIDR range to add"),
 ):
-    """Add a specific IP address or CIDR range to the whitelist."""
-    header("Add IP/CIDR to Whitelist")
+    """
+    Add a specific IP address or CIDR range to the whitelist.
+    
+    DEPRECATED: IP whitelisting has been replaced with VPC endpoint-based access control.
+    This command is kept for backward compatibility but will be removed in a future version.
+    """
+    warning("DEPRECATED: IP whitelisting has been replaced with VPC endpoint-based access control.")
+    warning("This command is deprecated and will be removed in a future version.")
+    warning("Access is now controlled via VPC endpoints configured in the CloudFormation stack.")
+    console.print()
+    header("Add IP/CIDR to Whitelist (Deprecated)")
     
     ip_cidr = normalize_ip(ip_or_cidr)
     
@@ -208,8 +234,17 @@ def add_ip(
 def remove_ip(
     ip_or_cidr: str = typer.Argument(..., help="IP address or CIDR range to remove"),
 ):
-    """Remove a specific IP address or CIDR range from the whitelist."""
-    header("Remove IP/CIDR from Whitelist")
+    """
+    Remove a specific IP address or CIDR range from the whitelist.
+    
+    DEPRECATED: IP whitelisting has been replaced with VPC endpoint-based access control.
+    This command is kept for backward compatibility but will be removed in a future version.
+    """
+    warning("DEPRECATED: IP whitelisting has been replaced with VPC endpoint-based access control.")
+    warning("This command is deprecated and will be removed in a future version.")
+    warning("Access is now controlled via VPC endpoints configured in the CloudFormation stack.")
+    console.print()
+    header("Remove IP/CIDR from Whitelist (Deprecated)")
     
     ip_cidr = normalize_ip(ip_or_cidr)
     
@@ -274,8 +309,17 @@ def remove_ip(
 
 @ip_app.command("remove-all")
 def remove_all_ips():
-    """Remove all IPs from the whitelist (deny all access)."""
-    header("Remove All IPs from Whitelist")
+    """
+    Remove all IPs from the whitelist (deny all access).
+    
+    DEPRECATED: IP whitelisting has been replaced with VPC endpoint-based access control.
+    This command is kept for backward compatibility but will be removed in a future version.
+    """
+    warning("DEPRECATED: IP whitelisting has been replaced with VPC endpoint-based access control.")
+    warning("This command is deprecated and will be removed in a future version.")
+    warning("Access is now controlled via VPC endpoints configured in the CloudFormation stack.")
+    console.print()
+    header("Remove All IPs from Whitelist (Deprecated)")
     
     warning("This will deny all external access to the API.")
     warning("Only localhost (127.0.0.1) will be able to access.")

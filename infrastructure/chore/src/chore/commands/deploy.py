@@ -120,13 +120,16 @@ def deploy_backend(
         info(f"Step 4: Deploying using samconfig.toml [{env}] profile...")
         
         built_template = project_root / ".aws-sam" / "build" / "template.yaml"
+        # Don't pass parameter_overrides when using --config-env
+        # SAM CLI will automatically read parameters from samconfig.toml
+        # This avoids replacing config file parameters with command-line overrides
         if not run_sam_deploy(
             config_env=env,
             template_file=str(built_template),
             stack_name=config.stack_name,
             region=config.region,
             cwd=str(project_root),
-            parameter_overrides=config.parameter_overrides,
+            parameter_overrides=None,  # Let SAM CLI read from config file
         ):
             error("Deployment failed")
             raise typer.Exit(1)

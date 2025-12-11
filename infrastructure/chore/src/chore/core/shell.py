@@ -143,8 +143,14 @@ def run_sam_deploy(
             "--region", region,
         ]
         
-        # Explicitly pass parameter overrides if provided
+        # Only pass parameter overrides if explicitly provided (for overriding specific parameters)
+        # When using --config-env, SAM CLI automatically reads parameters from samconfig.toml
+        # Passing --parameter-overrides would replace all config file parameters, so we only
+        # use it when we want to override specific parameters (not when using all config params)
         if parameter_overrides:
+            # Check if this is a partial override (fewer params than typically in config)
+            # For now, we'll only pass overrides if explicitly needed
+            # In most cases, we should let SAM CLI read from config file
             param_list = []
             for key, value in parameter_overrides.items():
                 # Handle empty values

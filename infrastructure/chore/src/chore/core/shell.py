@@ -151,8 +151,9 @@ def run_sam_deploy(
                 if value == "":
                     param_list.append(f"{key}=")
                 else:
-                    # Quote values that contain spaces or special characters
-                    if " " in str(value) or "," in str(value):
+                    # For CommaDelimitedList, don't quote - SAM handles them correctly
+                    # Only quote values with spaces (not commas, as those are valid for lists)
+                    if " " in str(value):
                         param_list.append(f'{key}="{value}"')
                     else:
                         param_list.append(f"{key}={value}")

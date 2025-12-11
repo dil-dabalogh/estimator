@@ -21,17 +21,32 @@ Parameters:
     Type: String
     Description: "VPC CIDR block for additional validation"
   
+  # Option 1: Create new VPC endpoints (not supported for shared VPCs)
   ApiGatewaySubnetIds:
     Type: CommaDelimitedList
-    Description: "Subnet IDs for API Gateway Interface endpoint (at least 2 in different AZs, comma-separated)"
+    Description: "Subnet IDs for API Gateway Interface endpoint (at least 2 in different AZs, comma-separated). Leave empty if using existing endpoints."
+    Default: ""
   
   ApiGatewaySecurityGroupId:
     Type: String
-    Description: "Security group ID for API Gateway Interface endpoint"
+    Description: "Security group ID for API Gateway Interface endpoint. Leave empty if using existing endpoints."
+    Default: ""
   
   S3RouteTableIds:
     Type: CommaDelimitedList
-    Description: "Route table IDs for S3 Gateway endpoint (comma-separated)"
+    Description: "Route table IDs for S3 Gateway endpoint (comma-separated). Leave empty if using existing endpoints."
+    Default: ""
+  
+  # Option 2: Use existing VPC endpoints (required for shared VPCs)
+  ExistingApiGatewayVpcEndpointId:
+    Type: String
+    Description: "Existing API Gateway VPC Interface Endpoint ID (required for shared VPCs). Leave empty to create new endpoint."
+    Default: ""
+  
+  ExistingS3VpcEndpointId:
+    Type: String
+    Description: "Existing S3 VPC Gateway Endpoint ID (required for shared VPCs). Leave empty to create new endpoint."
+    Default: ""
   
   LLMProvider:
     Type: String
@@ -78,10 +93,22 @@ Parameters:
     Type: String
     NoEcho: true
 
+Conditions:
+  # Create endpoints only if existing endpoint IDs are NOT provided AND we have required config
+  CreateApiGatewayEndpoint: !And
+    - !Equals [!Ref ExistingApiGatewayVpcEndpointId, '']
+    - !Not [!Equals [!Join ['', !Ref ApiGatewaySubnetIds], '']]
+  CreateS3Endpoint: !And
+    - !Equals [!Ref ExistingS3VpcEndpointId, '']
+    - !Not [!Equals [!Join ['', !Ref S3RouteTableIds], '']]
+  UseExistingApiGatewayEndpoint: !Not [!Equals [!Ref ExistingApiGatewayVpcEndpointId, '']]
+  UseExistingS3Endpoint: !Not [!Equals [!Ref ExistingS3VpcEndpointId, '']]
+
 Resources:
-  # API Gateway VPC Interface Endpoint
+  # API Gateway VPC Interface Endpoint (only created if not using existing)
   ApiGatewayVpcEndpoint:
     Type: AWS::EC2::VPCEndpoint
+    Condition: CreateApiGatewayEndpoint
     Properties:
       VpcId: !Ref VpcId
       ServiceName: !Sub "com.amazonaws.${AWS::Region}.execute-api"
@@ -97,9 +124,10 @@ Resources:
             Action: "*"
             Resource: "*"
 
-  # S3 VPC Gateway Endpoint
+  # S3 VPC Gateway Endpoint (only created if not using existing)
   S3VpcEndpoint:
     Type: AWS::EC2::VPCEndpoint
+    Condition: CreateS3Endpoint
     Properties:
       VpcId: !Ref VpcId
       ServiceName: !Sub "com.amazonaws.${AWS::Region}.s3"
@@ -155,12 +183,17 @@ Resources:
     Type: AWS::CloudFormation::CustomResource
     DependsOn:
       - EstimationApi
-      - ApiGatewayVpcEndpoint
       - ApiGatewayResourcePolicyPermission
     Properties:
       ServiceToken: !GetAtt ApiGatewayResourcePolicyFunction.Arn
       ApiId: !Ref EstimationApi
-      VpcEndpointId: !Ref ApiGatewayVpcEndpoint
+      VpcEndpointId: !If
+        - UseExistingApiGatewayEndpoint
+        - !Ref ExistingApiGatewayVpcEndpointId
+        - !If
+          - CreateApiGatewayEndpoint
+          - !Ref ApiGatewayVpcEndpoint
+          - !Ref "AWS::NoValue"
       VpcCidrBlock: !Ref VpcCidrBlock
 
   EstimationFunction:
@@ -232,7 +265,6 @@ Resources:
     Type: AWS::ApiGatewayV2::Route
     DependsOn:
       - EstimationIntegration
-      - ApiGatewayVpcEndpoint
     Properties:
       ApiId: !Ref EstimationApi
       RouteKey: "ANY /{proxy+}"
@@ -303,12 +335,17 @@ Resources:
     Type: AWS::CloudFormation::CustomResource
     DependsOn:
       - WebSocketApi
-      - ApiGatewayVpcEndpoint
       - WebSocketApiResourcePolicyPermission
     Properties:
       ServiceToken: !GetAtt WebSocketApiResourcePolicyFunction.Arn
       ApiId: !Ref WebSocketApi
-      VpcEndpointId: !Ref ApiGatewayVpcEndpoint
+      VpcEndpointId: !If
+        - UseExistingApiGatewayEndpoint
+        - !Ref ExistingApiGatewayVpcEndpointId
+        - !If
+          - CreateApiGatewayEndpoint
+          - !Ref ApiGatewayVpcEndpoint
+          - !Ref "AWS::NoValue"
       VpcCidrBlock: !Ref VpcCidrBlock
 
   # WebSocket Connect Handler
@@ -452,9 +489,21 @@ Outputs:
   
   ApiGatewayVpcEndpointId:
     Description: API Gateway VPC Interface Endpoint ID
-    Value: !Ref ApiGatewayVpcEndpoint
+    Value: !If
+      - UseExistingApiGatewayEndpoint
+      - !Ref ExistingApiGatewayVpcEndpointId
+      - !If
+        - CreateApiGatewayEndpoint
+        - !Ref ApiGatewayVpcEndpoint
+        - !Ref "AWS::NoValue"
   
   S3VpcEndpointId:
     Description: S3 VPC Gateway Endpoint ID
-    Value: !Ref S3VpcEndpoint
+    Value: !If
+      - UseExistingS3Endpoint
+      - !Ref ExistingS3VpcEndpointId
+      - !If
+        - CreateS3Endpoint
+        - !Ref S3VpcEndpoint
+        - !Ref "AWS::NoValue"
 

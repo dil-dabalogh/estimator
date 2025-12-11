@@ -3,6 +3,8 @@ version = 0.1
 # SAM CLI configuration file - Copy to samconfig.toml and customize
 # This file contains environment-specific settings and should not be committed
 
+# OPTION 1: Create new VPC endpoints (for non-shared VPCs)
+# Use this if your VPC is NOT shared via AWS Resource Access Manager (RAM)
 [default.deploy.parameters]
 stack_name = "estimation-tool-api"
 resolve_s3 = true
@@ -10,6 +12,17 @@ s3_prefix = "estimation-tool-api"
 confirm_changeset = true
 capabilities = "CAPABILITY_IAM"
 parameter_overrides = "VpcId=vpc-xxxxxxxxxxxxxxxxx VpcCidrBlock=10.0.0.0/16 ApiGatewaySubnetIds=subnet-xxxxxxxxxxxxxxxxx,subnet-yyyyyyyyyyyyyyyyy ApiGatewaySecurityGroupId=sg-xxxxxxxxxxxxxxxxx S3RouteTableIds=rtb-xxxxxxxxxxxxxxxxx,rtb-yyyyyyyyyyyyyyyyy,rtb-zzzzzzzzzzzzzzzzzz,rtb-wwwwwwwwwwwwwwwwww LLMProvider=bedrock OpenAIModel=gpt-5 BedrockRegion=us-west-2 BedrockModel=anthropic.claude-3-5-sonnet-20241022-v2:0 BedrockAgentId= BedrockAgentAliasId= AtlassianURL=https://your-company.atlassian.net AtlassianEmail=your-email@company.com"
+
+# OPTION 2: Use existing VPC endpoints (for shared VPCs)
+# Use this if your VPC is shared via AWS Resource Access Manager (RAM)
+# Uncomment and use this instead of Option 1 if you have a shared VPC
+# [default.deploy.parameters]
+# stack_name = "estimation-tool-api"
+# resolve_s3 = true
+# s3_prefix = "estimation-tool-api"
+# confirm_changeset = true
+# capabilities = "CAPABILITY_IAM"
+# parameter_overrides = "VpcId=vpc-xxxxxxxxxxxxxxxxx VpcCidrBlock=10.0.0.0/16 ExistingApiGatewayVpcEndpointId=vpce-xxxxxxxxxxxxxxxxx ExistingS3VpcEndpointId=vpce-yyyyyyyyyyyyyyyyy LLMProvider=bedrock OpenAIModel=gpt-5 BedrockRegion=us-west-2 BedrockModel=anthropic.claude-3-5-sonnet-20241022-v2:0 BedrockAgentId= BedrockAgentAliasId= AtlassianURL=https://your-company.atlassian.net AtlassianEmail=your-email@company.com"
 image_repositories = []
 
 [default.global.parameters]
@@ -22,7 +35,12 @@ s3_prefix = "estimation-tool-api"
 confirm_changeset = true
 capabilities = "CAPABILITY_IAM"
 # Dev environment - VPC endpoint configuration
+# OPTION 1: Create new endpoints (for non-shared VPCs)
 parameter_overrides = "VpcId=vpc-xxxxxxxxxxxxxxxxx VpcCidrBlock=10.0.0.0/16 ApiGatewaySubnetIds=subnet-xxxxxxxxxxxxxxxxx,subnet-yyyyyyyyyyyyyyyyy ApiGatewaySecurityGroupId=sg-xxxxxxxxxxxxxxxxx S3RouteTableIds=rtb-xxxxxxxxxxxxxxxxx,rtb-yyyyyyyyyyyyyyyyy,rtb-zzzzzzzzzzzzzzzzzz,rtb-wwwwwwwwwwwwwwwwww LLMProvider=bedrock OpenAIModel=gpt-5 BedrockRegion=us-west-2 BedrockModel=anthropic.claude-3-5-sonnet-20241022-v2:0 BedrockAgentId= BedrockAgentAliasId= AtlassianURL=https://your-company.atlassian.net AtlassianEmail=your-email@company.com"
+
+# OPTION 2: Use existing endpoints (for shared VPCs)
+# Uncomment and use this instead if you have a shared VPC
+# parameter_overrides = "VpcId=vpc-xxxxxxxxxxxxxxxxx VpcCidrBlock=10.0.0.0/16 ExistingApiGatewayVpcEndpointId=vpce-xxxxxxxxxxxxxxxxx ExistingS3VpcEndpointId=vpce-yyyyyyyyyyyyyyyyy LLMProvider=bedrock OpenAIModel=gpt-5 BedrockRegion=us-west-2 BedrockModel=anthropic.claude-3-5-sonnet-20241022-v2:0 BedrockAgentId= BedrockAgentAliasId= AtlassianURL=https://your-company.atlassian.net AtlassianEmail=your-email@company.com"
 image_repositories = []
 disable_rollback = true
 

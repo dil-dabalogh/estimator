@@ -19,9 +19,48 @@ The script supports two invocation modes:
    - Requires `bedrock:InvokeAgent` permission
    - Agent alias must be deployed and active
 
-## Option 1: AWS SSO (Recommended for Corporate Environments)
+## Option 1: aws-vault (Recommended for Local E2E Testing)
 
-AWS SSO (now called AWS IAM Identity Center) is the recommended method for corporate environments as it provides centralized access management and automatic credential rotation.
+`aws-vault` is the **preferred solution** for managing AWS credentials during local end-to-end testing. It securely manages credentials and SSO sessions, automatically handling session refresh and credential injection.
+
+### Setup Steps
+
+1. **Install aws-vault**:
+   ```bash
+   # macOS
+   brew install aws-vault
+   
+   # Linux (see https://github.com/99designs/aws-vault for other platforms)
+   ```
+
+2. **Add your AWS profile**:
+   ```bash
+   aws-vault add Sandbox
+   ```
+   This will prompt you to configure your AWS credentials or SSO profile.
+
+3. **Run your application**:
+   ```bash
+   # For the estimation tool backend/frontend
+   aws-vault exec Sandbox -- npm run dev
+   
+   # For other scripts
+   aws-vault exec Sandbox -- python scripts/orchestrator_unified.py run "<url>" --name "MyFeature"
+   ```
+
+### Benefits of aws-vault
+- ✅ Automatically manages SSO session refresh
+- ✅ Securely stores credentials (encrypted at rest)
+- ✅ Works seamlessly with boto3 and AWS SDKs
+- ✅ No need to manually export AWS_PROFILE
+- ✅ Prevents credential leakage to child processes
+- ✅ Supports multiple profiles and accounts
+
+---
+
+## Option 2: AWS SSO (Alternative for Corporate Environments)
+
+AWS SSO (now called AWS IAM Identity Center) is an alternative method for corporate environments. It provides centralized access management and automatic credential rotation.
 
 ### Setup Steps
 
@@ -71,7 +110,7 @@ aws sso login --profile bedrock-dev
 
 ---
 
-## Option 2: Access Keys (Environment Variables)
+## Option 3: Access Keys (Environment Variables)
 
 If SSO is not available, you can use traditional access keys.
 
@@ -99,7 +138,7 @@ If SSO is not available, you can use traditional access keys.
 
 ---
 
-## Option 3: AWS Profile (Non-SSO)
+## Option 4: AWS Profile (Non-SSO)
 
 If you have multiple AWS accounts or roles configured via `~/.aws/credentials`:
 
@@ -116,7 +155,7 @@ If you have multiple AWS accounts or roles configured via `~/.aws/credentials`:
 
 ---
 
-## Option 4: IAM Role (EC2/ECS/Lambda)
+## Option 5: IAM Role (EC2/ECS/Lambda)
 
 When running on AWS infrastructure (EC2, ECS, Lambda), the script automatically uses the IAM role attached to the instance/task/function. No additional configuration needed beyond setting `AWS_REGION`.
 
@@ -217,7 +256,10 @@ If running from a public subnet with internet gateway:
 ## Quick Reference
 
 ```bash
-# SSO (recommended)
+# aws-vault (recommended for local e2e testing)
+aws-vault exec Sandbox -- npm run dev
+
+# SSO (alternative)
 aws sso login --profile bedrock-dev
 export AWS_PROFILE=bedrock-dev
 export AWS_REGION=us-west-2

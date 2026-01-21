@@ -39,6 +39,54 @@ ATLASSIAN_USER_EMAIL=you@company.com
 ATLASSIAN_API_TOKEN=your-token-here
 ```
 
+#### Using Bedrock Locally
+
+If you want to use AWS Bedrock instead of OpenAI for local development:
+
+1. **Set environment variables**:
+   ```
+   LLM_PROVIDER=bedrock
+   BEDROCK_REGION=us-west-2
+   ATLASSIAN_URL=https://your-domain.atlassian.net/wiki
+   ATLASSIAN_USER_EMAIL=you@company.com
+   ATLASSIAN_API_TOKEN=your-token-here
+   ```
+
+2. **Configure AWS credentials**:
+   
+   **Preferred: aws-vault (Recommended for Local E2E Testing)**
+   
+   `aws-vault` is the preferred solution for managing AWS credentials during local end-to-end testing. It securely manages credentials and SSO sessions.
+   
+   ```bash
+   # Install aws-vault (if not already installed)
+   # macOS: brew install aws-vault
+   # Linux: See https://github.com/99designs/aws-vault
+   
+   # Add your AWS profile to aws-vault
+   aws-vault add Sandbox
+   
+   # Run the application with aws-vault
+   aws-vault exec Sandbox -- npm run dev
+   ```
+   
+   Benefits of aws-vault:
+   - Automatically manages SSO session refresh
+   - Securely stores credentials
+   - Works seamlessly with boto3
+   - No need to manually export AWS_PROFILE
+   
+   **Alternative: AWS SSO with AWS_PROFILE**
+   
+   ```bash
+   # Login to SSO
+   aws sso login --profile Sandbox
+   
+   # Set profile and run
+   export AWS_PROFILE=Sandbox
+   npm run dev
+   ```
+
 ## Running Locally
 
 ### Both Frontend and Backend

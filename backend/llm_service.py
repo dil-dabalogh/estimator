@@ -82,10 +82,12 @@ class BedrockProvider(LLMProvider):
     def __init__(self, region: str):
         try:
             import boto3
+            import os
             from botocore.exceptions import ClientError, BotoCoreError
             self._boto3 = boto3
             self._ClientError = ClientError
             self._BotoCoreError = BotoCoreError
+            self._os = os
         except ImportError:
             raise RuntimeError("boto3 package not available")
         
@@ -93,14 +95,23 @@ class BedrockProvider(LLMProvider):
         self._runtime_client: Optional[Any] = None
         self._agent_client: Optional[Any] = None
     
+    def _get_session(self):
+        """Get a boto3 session with profile support."""
+        profile = self._os.getenv("AWS_PROFILE")
+        if profile:
+            return self._boto3.Session(profile_name=profile)
+        return self._boto3.Session()
+    
     def _get_runtime_client(self) -> Any:
         if self._runtime_client is None:
-            self._runtime_client = self._boto3.client("bedrock-runtime", region_name=self._region)
+            session = self._get_session()
+            self._runtime_client = session.client("bedrock-runtime", region_name=self._region)
         return self._runtime_client
     
     def _get_agent_client(self) -> Any:
         if self._agent_client is None:
-            self._agent_client = self._boto3.client("bedrock-agent-runtime", region_name=self._region)
+            session = self._get_session()
+            self._agent_client = session.client("bedrock-agent-runtime", region_name=self._region)
         return self._agent_client
     
     def get_client(self) -> Any:
